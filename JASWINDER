@@ -1,0 +1,354 @@
+QUESTION 1:
+
+SQL> select * from partst;
+
+PART_NUM   PART_DESC        COST      PRICE QTY_ON_HAND                         
+---------- ---------- ---------- ---------- -----------                         
+SS-9090    Disc             2.25        4.5          75                         
+DD-9088    Cable            6.15          7          50                         
+AB-9011    Meter             8.5         12          33                         
+
+SQL> select * from service_parts_detail;
+
+  CALL_NUM PART_NUM          QTY                                                
+---------- ---------- ----------                                                
+     10795 SS-9090             5                                                
+     10796 AB-9011             1                                                
+     10797 AB-9011             3                                                
+     10798 DD-9088             2                                                
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create or replace function doll(call_number number)
+  2  return number
+  3  as
+  4  total number(10,2);
+  5  begin
+  6  select sum(price * qty_on_hand) into total from partst
+  7  where part_num = (select part_num from service_parts_detail
+  8  where call_num = call_number);
+  9  return total;
+ 10* end;
+SQL> /
+
+Function created.
+
+SQL> select doll(10795) from dual;
+
+DOLL(10795)                                                                     
+-----------                                                                     
+      337.5                                                                     
+
+SQL> spool off
+
+
+-------------------------------------------------------------------------------------
+QUESTION 2:
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create or replace procedure report
+  2  as
+  3  total number(10,2):=0;
+  4  sumv number(10,2):=0;
+  5  finaltotal number(10,2):=0;
+  6  cursor custloop is select * from customert;
+  7  x custloop%rowtype;
+  8  begin 
+  9  open custloop;
+ 10  loop
+ 11  	fetch custloop into x;
+ 12  	exit when custloop%notfound;
+ 13  	print(x.cust_first||' '||x.cust_last);
+ 14  	print(x.cust_address);
+ 15  	print(x.cust_city||' '|| x.cust_state);
+ 16  	print(chr(9)||'Call#'||chr(9)||'Date'||chr(9)||chr(9)||'Technician'||chr(9)||'Total');
+ 17  	for z in (select call_num from service_call where cust_num = x.cust_num) loop
+ 18  		for y in (select call_num, datec, tech_first, tech_last, (qty * price) as Total
+ 19  			from service_call natural join technician natural join service_parts_detail
+ 20  			natural join partst
+ 21  			where call_num = z.call_num) loop
+ 22  			print(chr(9)||y.call_num||chr(9)||y.datec||chr(9)||y.tech_first||' '||y.tech_last||to_char(y.total,'$99,9999.99'));
+ 23  		sumv:=sumv+y.total;
+ 24  		end loop;		
+ 25  	end loop;
+ 26  print(chr(9)||chr(9)||chr(9)||chr(9)||chr(9)||'Sum'||'  '||to_char(sumv,'$99,9999.99'));
+ 27  finaltotal:=finaltotal+sumv;
+ 28  end loop;
+ 29  print(chr(9)||chr(9)||chr(9)||chr(9)||'Final Total>>>'||to_char(finaltotal,'$99,9999.99'));
+ 30  close custloop;
+ 31* end;
+SQL> /
+
+Procedure created.
+
+SQL> exec report
+Raj Sangha                                                                      
+43 Oak Drive                                                                    
+Denver CO                                                                       
+	Call#	Date		Technician	Total                                                   
+	10795	15-JUL-19	John Belsham      $22.50                                       
+	10797	25-JUL-19	John Belsham      $36.00                                       
+					Sum        $58.50                                                          
+Harry Badhesha                                                                  
+1011 Hiltop Road                                                                
+Charlotte NC                                                                    
+	Call#	Date		Technician	Total                                                   
+	10796	20-JUL-19	John Belsham      $12.00                                       
+					Sum        $70.50                                                          
+Jesie Kaur                                                                      
+59 Taralea Park                                                                 
+Calgary AB                                                                      
+	Call#	Date		Technician	Total                                                   
+	10798	25-JUL-19	Kelly Kot      $14.00                                          
+					Sum        $84.50                                                          
+Rohit Sharma                                                                    
+204 Evanston Road                                                               
+Calgary AB                                                                      
+	Call#	Date		Technician	Total                                                   
+					Sum        $84.50                                                          
+				Final Total>>>     $298.00                                                  
+
+PL/SQL procedure successfully completed.
+
+SQL> spool off
+
+-----------------------------------------------------------------------------------
+
+QUESTION 3:
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create table log
+  2  (loguser varchar2(20),
+  3  loglocation varchar2(20),
+  4  logtime char(10),
+  5* logday char(10))
+SQL> /
+
+Table created.
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create or replace trigger watch_price
+  2  before insert or update or delete on partst
+  3  for each row
+  4  begin
+  5  	if(:new.price > (.20*:old.price + :old.price)) then
+  6  		raise_application_error(-20001,'>> CANNOT INCREASE MORE THAN 20 PERCENT');
+  7  	else
+  8  		insert into log values(user, userenv('terminal'),
+  9  		to_char(sysdate, 'hh:mi'),
+ 10  		to_char(sysdate, 'day'));
+ 11  	end if;
+ 12* end;
+SQL> /
+
+Trigger created.
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1* update partst set price=9.1 where part_num='DD-9088'
+SQL> /
+update partst set price=9.1 where part_num='DD-9088'
+       *
+ERROR at line 1:
+ORA-20001: >> CANNOT INCREASE MORE THAN 20 PERCENT 
+ORA-06512: at "SCOTT.WATCH_PRICE", line 3 
+ORA-04088: error during execution of trigger 'SCOTT.WATCH_PRICE' 
+
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1* update partst set price=7.6 where part_num='DD-9088'
+SQL> /
+
+1 row updated.
+
+SQL> select * from log;
+
+LOGUSER              LOGLOCATION          LOGTIME    LOGDAY                     
+-------------------- -------------------- ---------- ----------                 
+SCOTT                ICTVM-4NJ0MK0NT      10:43      tuesday                    
+
+SQL> spool off
+
+
+--------------------------------------------------------------------------------
+QUESTION 4:
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create or replace package mypackage
+  2  as
+  3  function doll(call_number number) return number;
+  4  procedure report;
+  5* end;
+SQL> /
+
+Package created.
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create or replace package body mypackage
+  2  as
+  3  function doll(call_number number)
+  4  return number
+  5  as
+  6  total number(10,2);
+  7  begin
+  8  select sum(price * qty_on_hand) into total from partst
+  9  where part_num = (select part_num from service_parts_detail
+ 10  where call_num = call_number);
+ 11  return total;
+ 12  end;
+ 13  procedure report
+ 14  as
+ 15  total number(10,2):=0;
+ 16  sumv number(10,2):=0;
+ 17  finaltotal number(10,2):=0;
+ 18  cursor custloop is select * from customert;
+ 19  x custloop%rowtype;
+ 20  begin 
+ 21  open custloop;
+ 22  loop
+ 23  fetch custloop into x;
+ 24  exit when custloop%notfound;
+ 25  print(x.cust_first||' '||x.cust_last);
+ 26  print(x.cust_address);
+ 27  print(x.cust_city||' '|| x.cust_state);
+ 28  print(chr(9)||'Call#'||chr(9)||'Date'||chr(9)||chr(9)||'Technician'||chr(9)||'Total');
+ 29  for z in (select call_num from service_call where cust_num = x.cust_num) loop
+ 30   for y in (select call_num, datec, tech_first, tech_last, (qty * price) as Total
+ 31    			from service_call natural join technician natural join service_parts_detail
+ 32   			natural join partst
+ 33    			where call_num = z.call_num) loop
+ 34   			print(chr(9)||y.call_num||chr(9)||y.datec||chr(9)||y.tech_first||' '||y.tech_last||to_char(y.total,'$99,9999.99'));
+ 35     		sumv:=sumv+y.total;
+ 36    		end loop;		
+ 37    	end loop;
+ 38   print(chr(9)||chr(9)||chr(9)||chr(9)||chr(9)||'Sum'||'  '||to_char(sumv,'$99,9999.99'));
+ 39   finaltotal:=finaltotal+sumv;
+ 40    end loop;
+ 41    print(chr(9)||chr(9)||chr(9)||chr(9)||'Final Total>>>'||to_char(finaltotal,'$99,9999.99'));
+ 42     close custloop;
+ 43   end;
+ 44* end;
+SQL> /
+
+Package body created.
+
+
+SQL> select mypackage.doll(10795) from dual;
+
+MYPACKAGE.DOLL(10795)                                                           
+---------------------                                                           
+                337.5                                                           
+
+
+SQL> exec mypackage.report
+Raj Sangha                                                                      
+43 Oak Drive                                                                    
+Denver CO                                                                       
+	Call#	Date		Technician	Total                                                   
+	10795	15-JUL-19	John Belsham      $22.50                                       
+	10797	25-JUL-19	John Belsham      $36.00                                       
+					Sum        $58.50                                                          
+Harry Badhesha                                                                  
+1011 Hiltop Road                                                                
+Charlotte NC                                                                    
+	Call#	Date		Technician	Total                                                   
+	10796	20-JUL-19	John Belsham      $12.00                                       
+					Sum        $70.50                                                          
+Jesie Kaur                                                                      
+59 Taralea Park                                                                 
+Calgary AB                                                                      
+	Call#	Date		Technician	Total                                                   
+	10798	25-JUL-19	Kelly Kot      $15.20                                          
+					Sum        $85.70                                                          
+Rohit Sharma                                                                    
+204 Evanston Road                                                               
+Calgary AB                                                                      
+	Call#	Date		Technician	Total                                                   
+					Sum        $85.70                                                          
+				Final Total>>>     $300.40                                                  
+
+PL/SQL procedure successfully completed.
+
+SQL> spool off
+
+
+
+---------------------------------------------------------------------------------
+QUESTIONS 5:
+
+SQL> connect system/oracle
+Connected.
+SQL> grant create any directory to scott;
+
+Grant succeeded.
+
+SQL> connect scott/tiger
+Connected.
+SQL> show user
+USER is "SCOTT"
+SQL> create directory exam as 'c:\';
+
+Directory created.
+
+SQL> create directory reports as 'c:\exam\';
+
+Directory created.
+
+SQL> edit
+Wrote file afiedt.buf
+
+  1  create or replace procedure report
+  2  as
+  3  m utl_file.file_type; ---FILE
+  4  total number(10,2):=0;
+  5  sumv number(10,2):=0;
+  6  finaltotal number(10,2):=0;
+  7  cursor custloop is select * from customert;
+  8  x custloop%rowtype;
+  9  begin 
+ 10  m:= utl_file.fopen('c:\exam\reports', 'sales.txt', 'w'); --FILE
+ 11  open custloop;
+ 12  loop
+ 13  fetch custloop into x;
+ 14  exit when custloop%notfound;
+ 15  utl_file.put_line(m,(x.cust_first||' '||x.cust_last));
+ 16  utl_file.put_line(m,(x.cust_address));
+ 17  utl_file.put_line(m,(x.cust_city||' '|| x.cust_state));
+ 18  utl_file.put_line(m,(chr(9)||'Call#'||chr(9)||'Date'||chr(9)||chr(9)||'Technician'||chr(9)||'Total'));
+ 19  for z in (select call_num from service_call where cust_num = x.cust_num) loop
+ 20   for y in (select call_num, datec, tech_first, tech_last, (qty * price) as Total
+ 21    			from service_call natural join technician natural join service_parts_detail
+ 22   			natural join partst
+ 23    			where call_num = z.call_num) loop
+ 24   			print(chr(9)||y.call_num||chr(9)||y.datec||chr(9)||y.tech_first||' '||y.tech_last||to_char(y.total,'$99,9999.99'));
+ 25     		sumv:=sumv+y.total;
+ 26    		end loop;		
+ 27    	end loop;
+ 28   utl_file.put_line(m,(chr(9)||chr(9)||chr(9)||chr(9)||chr(9)||'Sum'||'  '||to_char(sumv,'$99,9999.99')));
+ 29   finaltotal:=finaltotal+sumv;
+ 30    end loop;
+ 31   utl_file.put_line(m,(chr(9)||chr(9)||chr(9)||chr(9)||'Final Total>>>'||to_char(finaltotal,'$99,9999.99')));
+ 32     close custloop;
+ 33  utl_file.fclose(m); --FILE
+ 34*  end;
+SQL> /
+
+Procedure created.
+
+SQL> spool off
+
+

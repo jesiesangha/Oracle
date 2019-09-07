@@ -1,0 +1,366 @@
+create or replace procedure countup
+as
+x number(3):=1; 
+y number(3);
+begin
+	for x in 1..10 loop
+		dbms_output.put_line('x'||chr(9)||'x*x');
+	end loop;
+	dbms_output.put_line('break');
+
+	while (x<=10) loop
+		y:=x*x;
+		dbms_output.put_line(x||chr(9)||y);
+		x:=x+1;
+	end loop;
+end;
+---------------------------------------------------------------------------
+
+create or replace procedure countup(minx number,maxx number)
+as
+x number(3):=minx; 
+y number(3);
+begin
+	for x in minx..maxx loop
+		dbms_output.put_line('x'||chr(9)||'x*x');
+	end loop;
+
+	while (x<=maxx) loop
+		y:=x*x;
+		dbms_output.put_line(x||chr(9)||y);
+		x:=x+1;
+	end loop;
+end;
+----------------------------------------------------------------------------
+
+create or replace procedure taxinv
+as
+total number(10,2);
+tax number(10,2);
+   
+function getgst(amount number)
+return number
+as
+begin
+return amount*0.05;
+end;
+
+begin
+	select sum(inv_price*inv_qoh) into total from inventory;
+	tax:=getgst(total);
+	dbms_output.put_line('tax on inventory is: '||tax);
+end;
+-----------------------------------------------------------------------------
+
+create or replace procedure demo
+as
+type person is record(sin number(9),name char(30));--class
+p person;--object
+
+begin
+	p.sin:=123;
+	p.name:='bob';
+	dbms_output.put_line(p.name);
+end;
+---------------------------------------------------------------------------------
+
+create or replace procedure payreport_implicit
+as
+total number(8);
+begin
+	select sum(inv_qoh) into total from inventory;
+	for x in (select * from emp) loop       --oracle implicit cursor
+  		dbms_output.put_line(x.ename||x.sal);
+	end loop;
+end;
+---------------------------------------------------------------------------------
+
+create or replace procedure payreport_explicit
+as
+total number(8);
+cursor xloop is select * from emp;
+x xloop%rowtype;
+begin
+	select sum(inv_qoh) into total from inventory;
+	open xloop;			--done immediately before loop using it
+		loop	 		--industry standard explicit cursor
+  			fetch xloop into x;
+  			exit when xloop%notfound;	--like break
+  			dbms_output.put_line(x.ename||x.sal);
+		end loop;
+	close xloop;			--done immediate after loop using it
+end;
+----------------------------------------------------------------------------------
+
+--IN on loop used for IMPLICIT CURSOR
+create or replace procedure fancy
+as
+total number(10,2):=0;
+fintotal number(10,2):=0;
+counter number(6);
+begin
+for x in (select * from customer) loop
+ 	select count(*) into counter from orders where c_id=x.c_id;
+  	if (counter>0) then
+  		print(x.c_first||' '||x.c_last);
+   		print(x.c_address);
+   		print(x.c_city||', '||x.c_state||chr(9)||x.c_zip);
+   		print(chr(9)||'Order'||chr(9)||'Amount');
+   		
+		for y in (select o_id,sum(inv_price*ol_quantity) as amount
+            				from (orders natural join order_line) 
+                          		natural join inventory
+            				where c_id=x.c_id
+            				group by o_id 
+					order by o_id) loop
+         		print(chr(9)||y.o_id||chr(9)||y.amount);
+         		total:=total+y.amount;
+         		fintotal:=fintotal+y.amount;
+  		end loop;
+   		
+		print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '||total);
+   		total:=0;
+  	end if;
+   	dbms_output.put(chr(10));
+end loop;
+print('Final total '||fintotal);
+end;
+------------------------------------------------------------------------------------
+
+create or replace procedure catcolors
+as
+begin
+for x in (select * from category) loop
+   print(x.cat_desc);
+
+   for y in (select distinct color from inventory natural join item 
+            				where cat_id=x.cat_id) loop
+     	print(chr(9)||y.color);
+   end loop;
+
+end loop;
+end;   
+-------------------------------------------------------------------------------
+
+create or replace procedure catsizes
+as
+begin
+for x in (select * from category) loop
+   dbms_output.put(rpad(x.cat_desc,20));
+
+   for y in (select distinct inv_size from inventory natural join item	
+					   where cat_id=x.cat_id) loop
+     	dbms_output.put(chr(9)||y.inv_size);
+   end loop;
+
+   dbms_output.put_line(' ');
+end loop;
+end;
+-------------------------------------------------------------------------------
+
+create or replace procedure itemtotal
+as
+counter number(2):=0;
+total number(10,2):=0;
+begin
+for x in (select * from item) loop
+	select count(*) into counter from inventory where item_id=x.item_id;
+	if (counter>0) then
+		print(x.item_desc);
+		print(chr(9));
+		print(chr(9)||rpad('Color',12)||chr(9)||'Size'||chr(9)||'Amount');
+		for y in (select color, inv_size, sum(inv_price*inv_qoh) as amount 
+								from inventory 
+								where item_id=x.item_id 
+								group by (color,inv_size) 
+								order by 1,2) loop
+			print(chr(9)||rpad(y.color,12)||chr(9)||y.inv_size||chr(9)||y.amount);
+			total:=total+y.amount;
+		end loop;
+	print(chr(9));
+	print(chr(9)||chr(9)||chr(9)||'Total'||chr(9)||total);
+	total:=0;
+	print(chr(9));
+end if;
+end loop;
+end;
+----------------------------------------------------------------------------------
+
+create or replace procedure payroll2
+as
+tax number(10,2);
+netpay number(10,2);
+totsal number(10,2):=0;
+tottax number(10,2):=0;
+totnet number(10,2):=0;
+begin
+for x in (select * from dept where deptno in (select deptno from emp)
+                	     order by deptno) loop
+   print(x.dname);
+   print(chr(9)||chr(9)||'worker  salary   tax   net pay');
+   for y in (select * from emp where deptno=x.deptno) loop
+      tax:=y.sal*0.30;
+      netpay:=y.sal-tax;
+      print(chr(9)||chr(9)||y.ename||chr(9)||y.sal||chr(9)||tax||chr(9)||netpay);
+      totsal:=totsal+y.sal;
+      tottax:=tottax+tax;
+      totnet:=totnet+netpay;
+   end loop;
+end loop;
+print('>>Final totals>>'||chr(9)||totsal||chr(9)||tottax||chr(9)||totnet);
+end;
+
+----------------------------------------------------------------------------------
+
+create or replace procedure writedos
+as
+x utl_file.file_type;
+begin
+x:=utl_file.fopen('CDRIVE','oracle.txt','w');
+utl_file.put_line(x,'hi from oracle');
+utl_file.fclose(x);
+end;
+
+
+----------------------------------------------------------------------------------
+
+create or replace procedure readcat
+as
+x utl_file.file_type;
+datax varchar2(100);
+begin
+x:=utl_file.fopen('CDRIVE','cat.txt','r');
+loop
+   begin
+      utl_file.get_line(x,datax);
+   exception
+      when no_data_found then
+         exit;--like a break
+   end;
+   --now you have data so print it or insert it in a table
+   print(datax);
+end loop;--------
+utl_file.fclose(x);
+end;
+---------------------------------------------------------------------------------
+
+create or replace procedure traperrors
+as
+x number(3):=1;
+y number(3):=0;
+begin
+x:=x/y;
+dbms_output.put_line('hey');
+exception --try/catch
+  when zero_divide then
+    dbms_output.put_line('bad math');
+  when value_error then
+    dbms_output.put_line('variable too small to hold value');
+  when others then
+     if sqlcode=-8000 then
+         dbms_output.put_line('no privilege to see data');
+     elsif sqlcode=-9000 then
+         dbms_output.put_line('no disk space');
+     else
+        dbms_output.put_line(sqlerrm);
+     end if;
+end;
+----------------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE InventoryReport
+AS
+total NUMBER(12,2):= 0;
+BEGIN
+DBMS_OUTPUT.PUT(CHR(10));
+print('Inventory Report'||CHR(10));
+
+FOR x IN (SELECT * FROM item) LOOP
+     print(x.item_desc);
+     print(CHR(9)||RPAD('Colour', 12)||CHR(9)||'Size'||CHR(9)||'Total Price');
+     FOR y IN (SELECT color, inv_size, SUM(inv_price * inv_qoh) AS amount
+           			FROM inventory WHERE item_id = x.item_id
+           			GROUP BY color, inv_size)  LOOP  
+           print(CHR(9)||RPAD(y.color, 12)||CHR(9)||y.inv_size||CHR(9)||TO_CHAR(y.amount, '$99999.99'));
+           total:= total + y.amount;
+     END LOOP;
+     print(CHR(9)||'  '||'Total inventory value:  '||TO_CHAR(total, '$99999.99'));
+     DBMS_OUTPUT.PUT(CHR(10));
+     total:= 0; -- reset total for future items
+END LOOP;
+END;
+-----------------------------------------------------------------------------------
+
+create or replace procedure itemcolors
+as
+total number(10,2):=0;
+begin
+for x in (select * from item) loop
+   print(x.item_desc);
+   print(chr(9)||'      color        size     amount');
+   for y in (select color,inv_size,sum(inv_price*inv_qoh) as amount
+            from inventory where item_id=x.item_id
+            group by color,inv_size) loop
+        print(chr(9)||chr(9)||rpad(y.color,15)||chr(9)||y.inv_size||
+                                chr(9)||y.amount);
+        total:=total + y.amount;
+   end loop;
+   print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '||total);
+   total:=0;
+end loop;
+end;
+-----------------------------------------------------------------------------------
+
+create or replace procedure demo
+as
+type person is record(sin number(9),name char(30));--class
+p person;--object
+type sales is table of number(10,2) index by binary_integer;--array
+s sales:=sales();
+type people is table of person index by binary_integer;--array of classes
+workers people;
+begin
+workers(1).sin:=456;
+p.sin:=123;
+p.name:='bob';
+s(1):=100.00;
+s(123):=200.00;
+dbms_output.put_line(p.name);
+dbms_output.put_line(s(1));
+dbms_output.put_line(s.first||' '||s.last||' '||s.count);
+end;
+-----------------------------------------------------------------------------------
+
+create or replace procedure showpay(amount number,years number, rate number,payment number)
+as
+beginamount number(10,2):=amount;
+endamount number(10,2);
+interest number(10,2);
+months number(4):=years*12;
+x number(4):=1;
+begin
+print('Month   Begin   Interest   Payment   End');
+while (x<=months) loop
+--for x in 1..months loop
+   interest:=beginamount*(rate/12/100);
+   endamount:=beginamount + interest - payment;
+   print(x||chr(9)||beginamount||chr(9)||interest||chr(9)||payment||
+                           chr(9)||endamount);
+   beginamount:=endamount;
+   x:=x+1;
+end loop;
+end;
+
+SQL> exec paymentreport(10000,1,12,888.49);
+Month   Begin     Interest  Payment     End
+1       10000     100       888.49      9211.51
+2       9211.51   92.12     888.49      8415.14
+3       8415.14   84.15     888.49      7610.8
+4       7610.8    76.11     888.49      6798.42
+5       6798.42   67.98     888.49      5977.91
+6       5977.91   59.78     888.49      5149.2
+7       5149.2    51.49     888.49      4312.2
+8       4312.2    43.12     888.49      3466.83
+9       3466.83   34.67     888.49      2613.01
+10      2613.01   26.13     888.49      1750.65
+11      1750.65   17.51     888.49      879.67
+12      879.67    8.8       888.49      -.02

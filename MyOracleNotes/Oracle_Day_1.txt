@@ -1,0 +1,336 @@
+Tool = "SQL Server Management Studio" to write SQL code for SQL Server Database.
+Tool = "Oracle SQL Plus" to write PL/SQL code for Oracle Database.
+
+Learn format date and currency, create tables, object, totals.
+
+To check if Oracle is running:
+check under services
+OracleOraDb11g_home1TNSListener RUNNING
+OracleServiceORCL RUNNING
+
+lsnrctl status //to check u are allowed to login
+
+Name of server can be found under:
+services - ORCL
+command prompt - Lsnrctl status
+
+
+Command are written in "sqlplus":
+username: system
+password: oracle
+username: scott
+password: tiger
+
+
+show user //will tell account name
+close command prompt OR log out from account - exit
+
+Open notepad from cmd: edit
+you can make changes in the notepad.
+Then type / to run the command which was in notepad
+
+Edit - mark to copy all the commands from command prompt.
+list //show previous statement
+; is required in oracle statements
+
+
+set serveroutput on //to see the result of your commands
+set pagesize 40 // increase the size of page
+set linesize 100  //increase the size of line
+set long 10000 //make 10000 character output to oracle
+
+clear space screen //clear the command prompt screen
+
+
+select * from cat; //cat means catalogue. show ALL table names
+desc dept //show column names
+
+spool c:\sql\commands.txt //copy everything on cmd in txt file
+spool off //stop copy - u will see the file after spool off
+
+
+
+select sysdate from dual; //get current date
+select user from dual;	  //dual is temporary table
+select userenv('terminal') from dual; //give pc location userenv means userenvironment
+
+
+//Format date and currency 
+select ename, to_char(hiredate, 'Mon dd,yyyy hh:mi Day') as "hire date" , 
+to_char(sal, '$99,999.99') as "Salary" from emp;
+
+
+COMMIT; //to save data in your tables
+dual is temporary table.
+
+
+Data Types - oracle:
+char
+varchar2 instead of varchar
+date instead of datetime - date will include date and time.
+number instead of numeric
+
+
+//function that turn data into xml
+select getxml('select * from dept') from dual; 
+below is the getxml file in oracle folder on desktop
+--------------------------------------------------------------------
+create or replace function getxml(sqlx in varchar2)
+return clob
+as
+x sys.dbms_xmlquery.ctxtype;
+outxml clob;
+begin
+x:=sys.dbms_xmlquery.newcontext(sqlx);
+outxml:=sys.dbms_xmlquery.getxml(x);
+sys.dbms_xmlquery.closecontext(x);
+return outxml;
+end;
+/
+----------------------------------------------------------------------
+
+
+
+--------------to see html file------------------------------
+set markup html on
+spool c:\sql\products.html
+select * from dept;
+spool off
+set markup html off
+
+Result will show the data in table format in products.html. data will come from the table u selected.
+---------------------------------------------
+
+
+alter table friends modify(name char(40));
+
+
+5 types of commit - also called isolation levels
+1. Read committed (default) - other users cannot see your insert and update unless u commit it - Normal
+2. Read uncommitted - others can see your insert and updates before you commit them - amazon use this - quantity drop with shopping cart.
+3. Repeatable Read - locks data shown on selects so it cannot be changed - lock up the database but u can insert on the table
+4. Serializable - like Repeatable Read but also stops inserts on the table
+5. Snapshot - make copy of the tables on selects
+
+
+set transaction isolation level read committed
+
+system.data.oledb; //oledb will help to connect with any type of database
+
+
+
+select dname, ename, job ,sal
+from dept d inner join emp e 
+ON d.deptno = e.deptno
+order by dname;
+
+//ORACEL use NATURAL join - dont have to give ON
+select dname, ename, job ,sal
+from dept NATURAL join emp
+order by dname;
+
+
+//not working for me
+select dname, ename, job ,sal
+from dept d inner join emp e on using(deptno)
+order by dname;
+
+
+select ename, to_char(hiredate, 'mm/dd/yyyy') from emp;
+select ename, to_char(hiredate, 'mm/dd/yyyy') as "hire date" from emp;
+select ename, to_char(hiredate, 'Mon dd,yyyy hh:mi Day') as "hire date" from emp;
+
+insert into rainchecks values(1, 'bob', 1112222, to_date('3/15/2019','mm/dd/yyyy'));
+
+
+desc ar_invoices //tablename to see column names
+select invoice#, invoice_date, 
+sysdate - invoice_date as "days" from ar_invoices;
+
+
+select invoice#, invoice_date, 
+months_between(sysdate, invoice_date) as "age" from ar_invoices;
+
+
+
+select color, inv_size, inv_price *inv_qoh as sales
+from inventory
+order by 1, 2;
+
+
+select color, inv_size, inv_qoh as quantity
+from inventory
+order by 1, 2;
+
+drop table practise; //will drop the table
+
+
+create table rainchecks
+(check# number(6) primary key,
+name varchar2(50) not null,
+phone number(10) check(phone>0),
+rain_date date);
+
+
+//create child table
+create table rain_details
+(check# number(6) references rainchecks(check#),
+item char(20),
+price number(10,2),
+primary key(check#, item));
+
+
+insert into rainchecks values(1, 'bob', 1112222, to_date('3/15/2019','mm/dd/yyyy'));
+
+
+object oriented database
+example: street, city, prov, postal SAME in 3 tables 
+like suppliers, customers, workers. u can create common columns as an object.
+
+
+//object table - let's say name of object is address
+create type address as object
+(street varchar2(30),
+city varchar2(30),
+prov char(2),
+postal char(6));
+
+
+create table suppliers
+(sup# number(6) primary key,
+sup_name char(30),
+sup_address address,
+balance number(10,2));
+
+
+set describe depth 2  //it will show what is under type address if u type "desc supplier" command after it.
+desc suppliers
+
+------------------------------------------------------------------------------------------------------------------------
+
+//write all below commands to create directory named cdrive
+connect system/oracle
+grant create any directory to scott;
+connect scott/tiger
+show user
+create directory cdrive as 'c:\sql\';
+
+
+
+//external table - data is already stored in names.txt file and now u put that data into database
+create table outside_names
+(id number(6),
+name char(30),
+prov char(2))
+organization external
+(default directory cdrive
+location('names.txt'));
+
+---------------------------------------------------------------------------------------------------------------------------
+
+//Split command by using insert all - take existing data and split it.
+insert all
+when c_state='WI' then into customer_wi
+when c_state='MN' then into customer_mn
+select * from customer;
+
+
+insert into dept
+select 50, 'budgets', 'calgary' from dual union
+select 60, 'marketing', 'edmonton' from dual;
+
+
+
+select color, sum(inv_qoh)
+from inventory
+group by color;
+
+
+
+//percentage of sale = 490/3143
+select color, sum(inv_qoh), sum(sum(inv_qoh)) over()
+from inventory
+group by color;
+
+
+select color, sum(inv_qoh) as sales, 
+sum(inv_qoh) / sum(sum(inv_qoh)) over() as "% of sales"
+from inventory
+group by color;
+
+
+//to_char to format number
+select color, sum(inv_qoh) as sales, 
+to_char(sum(inv_qoh) / 
+		sum(sum(inv_qoh)) over(), '99999.9') as "% of sales"
+from inventory
+group by color;
+
+
+
+select color, sum(inv_qoh) as sales, 
+to_char(sum(inv_qoh) / 
+		sum(sum(inv_qoh)) over(), '99999.9') as "% of sales",
+sum(sum(inv_qoh))over(order by 2 desc rows between unbounded 
+preceding and current row) as "running"
+from inventory
+group by color
+order by 2 desc; //second column
+
+
+
+//Concatenate data with some space & put in one column
+select deptno||' '||dname||' '||loc from dept;
+
+
+
+//Horizontal concate - 60 characters is the limit of horizontal row. 
+//wm_contact make it horizontal - IMPORTANT
+select deptno, rpad(wm_concat(ename),60) as "workers"
+from emp
+group by deptno;
+
+
+
+------------------------------------------------------------------------------------------------------------------------
+//do rollup if u do grouping - give TOTAL value according to groupby
+select color, inv_size, sum(inv_qoh)
+from inventory
+group by rollup(color, inv_size)
+order by color, inv_size;
+
+set null '<<TOTAL>>'
+
+set null ''
+
+select color, grouping(color), inv_size, grouping(inv_size), sum(inv_qoh)
+from inventory
+group by rollup(color, inv_size)
+order by color, inv_size;
+
+result: 1 means total
+
+
+select color, grouping(color),
+case when grouping(inv_size) = 1 
+	then '<Color Total>' else inv_size end as "Size", 
+sum(inv_qoh)
+from inventory
+group by rollup(color, inv_size)
+order by color, inv_size;
+
+
+select 
+case when grouping(color) = 1 
+	then '<Final>' else color end as "Color",
+case when grouping(inv_size) = 1 
+	then '<Color Total>' else inv_size end as "Size", 
+sum(inv_qoh)
+from inventory
+group by rollup(color, inv_size)
+order by color, inv_size;
+
+
+
+
+

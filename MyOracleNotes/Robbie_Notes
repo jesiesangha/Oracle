@@ -1,0 +1,710 @@
+
+This comes from a file on the O-drive and from my notes in class. 
+Again, none of his will be on the test, which Randal said would only cover days 1-4 (functions, procedures, triggers, packages)
+
+[Oracle_plsql_day6.txt] (from O-drive)
+select * from salesdata
+model
+partition by (year)
+dimension by (month)
+measures(sales)
+rules(sales[for month from 5 to 12 increment 1]
+=( (sales[cv()-1] - sales[cv()-2]) / sales[cv()-2] + 1 )*sales[cv()-1]);
+
+select * from salesdata
+model
+partition by (year)
+dimension by (month)
+measures(sales)
+rules(sales[for month from 5 to 12 increment 1]=1.1*sales[cv()-1]);
+
+select * from salesdata
+model
+partition by (year)
+dimension by (month)
+measures(sales)
+rules(sales[5]=150000,sales[6]=170000);
+
+select year,month,sales,
+lag(sales,1) over(order by month) as previous,
+to_char(100*(sales - lag(sales,1) over(order by month)) /
+    lag(sales,1) over(order by month),'999999.9') as "% change"
+from marketing
+order by month;
+
+create or replace function javagst(x number)
+return number
+as
+language java
+name 'getgst.gst(double) return double';
+
+create or replace procedure javahi
+as
+language java
+name 'sayhi2.sayhi()';
+/
+
+create or replace procedure showpay(amount number,years number,
+                           rate number,payment number)
+as
+beginamount number(10,2):=amount;
+endamount number(10,2);
+interest number(10,2);
+months number(4):=years*12;
+x number(4):=1;
+begin
+print('Month   Begin   Interest   Payment   End');
+while (x<=months) loop
+--for x in 1..months loop
+   interest:=beginamount*(rate/12/100);
+   endamount:=beginamount + interest - payment;
+   print(x||chr(9)||beginamount||chr(9)||interest||chr(9)||payment||
+                           chr(9)||endamount);
+   beginamount:=endamount;
+   x:=x+1;
+end loop;
+end;
+
+create or replace procedure itemcolors
+as
+total number(10,2):=0;
+begin
+for x in (select * from item) loop
+   print(x.item_desc);
+   print(chr(9)||'      color        size     amount');
+   for y in (select color,inv_size,sum(inv_price*inv_qoh) as amount
+            from inventory where item_id=x.item_id
+            group by color,inv_size) loop
+        print(chr(9)||chr(9)||rpad(y.color,15)||chr(9)||y.inv_size||
+                                chr(9)||y.amount);
+        total:=total + y.amount;
+   end loop;
+   print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '||total);
+   total:=0;
+end loop;
+end;
+
+ create table baskets
+ (basket# number(3),
+ item char(20),
+ primary key(basket#,item));
+
+
+
+ insert into baskets
+ select 1,'apples' from dual union
+ select 1,'juice' from dual union
+ select 1,'milk' from dual union
+ select 1,'eggs' from dual union
+ select 2,'juice' from dual union
+ select 2,'eggs' from dual union
+ select 2,'bread' from dual union
+ select 3,'eggs' from dual union
+ select 3,'milk' from dual union
+ select 3,'cereal' from dual union
+ select 3,'bananas' from dual union
+ select 4,'juice' from dual union
+ select 4,'milk' from dual union
+ select 4,'eggs' from dual;
+
+
+
+ commit;
+
+--replace 120 line plsql procedure shown in class
+-- by this sql
+
+ select distinct
+ case when a.item<b.item then a.item else b.item end "item1",
+ case when b.item>a.item then b.item else a.item end "item2",
+    count(*)/2 "count"
+ from baskets a cross join baskets b
+ where a.item<>b.item and a.basket#=b.basket#
+ group by case when a.item<b.item then a.item else b.item end,
+          case when b.item>a.item then b.item else a.item end
+ having count(*)/2 > 1
+ order by 3 desc;
+
+[Robbie's Notes]
+Oracle Database SQL Exam. Has review material as well:
+
+https://education.oracle.com/oracle-database-sql/pexam_1Z0-071
+
+Oracle PL/SQL Exam w/ review:
+
+https://education.oracle.com/oracle-pl-sql-developer-certified-associate/trackp_162
+
+Scroll down to Oracle Database 11g: Program with PL/SQL 1Z0-144 under the EXAM header:
+https://education.oracle.com/oracle-database-11g-program-with-pl-sql/pexam_1Z0-144
+Stanford PL/SQL Pages:
+
+http://infolab.stanford.edu/~ullman/fcdb/oracle/or-triggers.html
+
+Toad for Oracle - Use the "Oracle Developer" Edition
+
+https://www.quest.com/products/toad-for-oracle/software-downloads.aspx
+
+Head First Design Patterns: A Brain-Friendly Guide (and others – look for “Head First”)
+
+Java in Oracle Environment
+
+Location of JDK: C:\Program Files (x86)\Java\jdk1.8.0_221\bin
+
+Paste this into command prompt with cd command: cd “C:\Program Files (x86)\Java\jdk1.8.0_221\bin”
+
+Java methods imported into Oracle must be static
+
+Run Java code through a Java compiler before importing into Oracle. Any errors in Java code will only return “Corrupt Code” or similar
+
+Import Java programs in command prompt with javac <filepath of script>; must be source code
+
+Command cd\ will return command prompt to “C:\” mode
+
+Command cmd /e:4096 will add more space to memory for object heap
+
+Command loadjava -user scott/tiger@orcl -force -resolve c:\sql\sayhi2.java will load a Java file with the selected user @ the database name, force and resolve force it to load?
+
+Turn on output for xml: set long 10000 could use another value instead of 10000
+
+For Java: exec dbms_java.set_output(10000) again, could use another value
+
+Attach Java code to a procedure for it to work. Simple example:
+
+CREATE OR REPLACE PROCEDURE javahi
+
+AS
+
+LANGUAGE java
+
+NAME 'sayhi2.sayhi()';
+
+/
+
+Using a Java script in a function:
+
+CREATE OR REPLACE FUNCTION javagst(x NUMBER)
+
+RETURN NUMBER
+
+AS
+
+LANGUAGE java
+
+NAME 'getgst.gst(double) return double';
+
+/
+
+Remember, Java is case-sensitive, so Java code in SQL needs to reflect this
+
+Relational algebra – shortcut SQL using mathematical symbols
+
+Alternative
+Relational calculus
+SQL
+
+Shortcut
+
+SELECT * FROM orders
+
+(Roman numeral 2) II * (orders)
+
+II means SELECT
+
+SELECT order#, order_date FROM orders WHERE prov=’ab’
+
+II order#, order_date s prov = ‘ab’ (orders)
+
+s means WHERE
+
+SELECT city, SUM(amount) FROM sales s INNER JOIN items I ON i.inv# = s.inv# WHERE prov = ‘ab’ GROUP BY city
+
+II city ? amount s prov = ‘ab’ (sales ? items)
+
+? (upside-down 5) means SUM & GROUP BY
+
+? means NATURAL JOIN
+
+SELECT city, SUM(amount) FROM items i LEFT OUTER JOIN sales s ON i.inv# = s.inv# WHERE prov = ‘ab’ GROUP BY city
+
+II city ? amount s prov = ‘ab’ (items ? sales)
+
+? means LEFT OUTER JOIN
+
+SELECT name FROM workers UNION SELECT name FROM customers
+
+II name (worker u customers)
+
+n means intersect
+
+- (minus) means differences
+
+Keyword LAG can be used to show past rows in SELECT statements. Example:
+
+SELECT year, month, sales,
+
+LAG(sales, 1) OVER (ORDER BY month)
+
+FROM marketing
+
+ORDER BY MONTH
+
+/
+
+This will show nothing in column 4 on the first row, but every row after that will show the previous month’s sales under column 4. Can use LEAD keyword to show future values; the opposite of LAG keyword. Example with % change:
+
+SELECT year, month, sales,
+
+LAG(sales, 1) OVER (ORDER BY month) AS Previous,
+
+TO_CHAR(100 * (sales - LAG(sales, 1) OVER (ORDER BY month)) /
+
+     LAG(sales,1) OVER (ORDER BY month), '999999.9') AS "% Change"
+
+FROM marketing
+
+ORDER BY MONTH
+
+/
+
+MODEL Keyword
+
+Can predict future values
+Parts
+Partition – columns that do not change
+Dimension – column to increment
+Measures – column with amount to predict
+Rules – formula to predict future values
+Ways to predict future values:
+
+Moving average
+Average last few values
+Weighted average
+Assign higher %s to recent data
+Linear regression
+Y = A + B * X; a straight-line graph
+A = intercept of graph
+B = slope of graph
+Curvilinear regression
+Y = A * BX; a curved-line graph
+Economic cycle
+Holt-Winters
+Box-Jenkins
+Cubic spline
+Consider R2
+
+Accuracy, want > 80*
+To use MODEL, create a View. In class, we made CREATE VIEW salesdata AS SELECT * FROM marketing; as a view.
+
+SELECT * FROM salesdata
+
+MODEL
+
+PARTITION BY (year)
+
+DIMENSION BY (month)
+
+MEASURES (sales)
+
+RULES (sales[FOR month FROM 5 TO 12 INCREMENT 1]
+
+     = ( (sales[CV()-1] - sales[CV()-2]) / sales[CV()-2] + 1 ) * sales[CV()-1])
+
+/
+
+In class: Write a procedure with 4 parameters: amount (e.g. 10,000.00), years (e.g. 1.0), rate per year (e.g. 12.0 %), and payment per month (e.g. 888.49). Want a payment report like:
+
+Year (12)
+
+Month
+
+Begin
+
+Interest
+
+Payment
+
+End
+
+2019
+
+1
+
+10,000.00
+
+100.00
+
+888.49
+
+9211.51
+
+2019
+
+2
+
+9211.51 (last end)
+
+92.12
+
+888.49
+
+8415.14
+
+CREATE OR REPLACE PROCEDURE payReport (amount NUMBER, years NUMBER, rate NUMBER, payment NUMBER)
+
+AS
+
+beginAmount NUMBER(12,2):= amount;
+
+endAmount NUMBER(12,2);
+
+interest NUMBER(12,2);
+
+BEGIN
+
+print('Month'||CHR(9)||'Begin'||CHR(9)||CHR(9)||'Interest'||CHR(9)||'Payment'||CHR(9)||CHR(9)||'End');
+
+FOR x IN 1..(years * 12) LOOP
+
+     interest:= beginAmount * (rate/12/100); -- monthly interest
+
+     endAmount:= beginAmount + interest - payment;
+
+     print(x||CHR(9)||
+
+           TO_CHAR(beginAmount, '$99999.99')||CHR(9)||
+
+           TO_CHAR(interest, '$99999.99')||CHR(9)||
+
+           TO_CHAR(payment, '$99999.99')||CHR(9)||
+
+           TO_CHAR(endAmount, '$99999.99'));
+
+     beginAmount:= endAmount;
+
+END LOOP;
+
+END;
+
+/
+
+In class: Write a procedure to show item descriptions, their colours, sizes and amounts and totals for each item. Example:
+
+Parka
+
+     Color      Size      Amount
+
+     Black      L         price * quantity
+
+               Total:     SUM(Amount)
+
+CREATE OR REPLACE PROCEDURE InventoryReport
+
+AS
+
+total NUMBER(12,2);
+
+BEGIN
+
+DBMS_OUTPUT.PUT(CHR(10));
+
+print('Inventory Report'||CHR(10));
+
+FOR x IN (SELECT DISTINCT item_id, item_desc FROM item ORDER BY item_desc) LOOP
+
+     print(x.item_desc);
+
+     print(CHR(9)||RPAD('Color', 12)||CHR(9)||'Size'||CHR(9)||'    '||'Price'||CHR(9)||'Quantity');
+
+     FOR y IN (
+
+           SELECT DISTINCT color, inv_size, inv_price, inv_qoh
+
+           FROM inventory NATURAL JOIN item
+
+           WHERE item_id = x.item_id
+
+           ORDER BY color)
+
+     LOOP
+
+           print(CHR(9)||RPAD(y.color, 12)||CHR(9)||y.inv_size||CHR(9)||TO_CHAR(y.inv_price, '$99999.99')||CHR(9)||y.inv_qoh);
+
+           total:= total + (y.inv_price * y.inv_qoh);
+
+     END LOOP;
+
+     print(CHR(9)||'  '||'Total inventory value:  '||TO_CHAR(total, '$99999.99'));
+
+     DBMS_OUTPUT.PUT(CHR(10));
+
+     total:= 0; -- reset total for future items
+
+END LOOP;
+
+END;
+
+/
+
+Randal’s solution:
+
+CREATE OR REPLACE PROCEDURE InventoryReport
+
+AS
+
+total NUMBER(12,2):= 0;
+
+BEGIN
+
+DBMS_OUTPUT.PUT(CHR(10));
+
+print('Inventory Report'||CHR(10));
+
+FOR x IN (SELECT * FROM item) LOOP
+
+     print(x.item_desc);
+
+     print(CHR(9)||RPAD('Colour', 12)||CHR(9)||'Size'||CHR(9)||'Total Price');
+
+     FOR y IN (
+
+           SELECT color, inv_size, SUM(inv_price * inv_qoh) AS amount
+
+           FROM inventory WHERE item_id = x.item_id
+
+           GROUP BY color, inv_size)
+
+     LOOP
+
+           print(CHR(9)||RPAD(y.color, 12)||CHR(9)||y.inv_size||CHR(9)||TO_CHAR(y.amount, '$99999.99'));
+
+           total:= total + y.amount;
+
+     END LOOP;
+
+     print(CHR(9)||'  '||'Total inventory value:  '||TO_CHAR(total, '$99999.99'));
+
+     DBMS_OUTPUT.PUT(CHR(10));
+
+     total:= 0; -- reset total for future items
+
+END LOOP;
+
+END;
+
+/
+
+Simple “basket program” from class:
+
+SELECT DISTINCT
+
+     CASE WHEN a.item < b.item THEN a.item ELSE b.item END "Item 1",
+
+     CASE WHEN b.item > a.item THEN b.item ELSE a.item END "Item 2",
+
+     COUNT(*)/2 "Count"
+
+FROM baskets a CROSS JOIN baskets b
+
+WHERE a.item <> b.item -- don't join identical items
+
+     AND a.basket# = b.basket# -- make sure items in one basket aren't counted against other baskets
+
+GROUP BY CASE WHEN a.item < b.item THEN a.item ELSE b.item END,
+
+     CASE WHEN b.item > a.item THEN b.item ELSE a.item END -- cannot use aliases for group by, so have to take each entire line infront of the COUNT
+
+HAVING COUNT(*)/2 > 1
+
+ORDER BY 3 DESC
+
+/
+
+Randal gave us PL/SQL code for the above program. Above code is purely SQL and much simpler, however.
+
+Jaswinder Sangha
+Sun 8/18/2019 7:36 PM
+Thank you Robbie for sharing your notes. i appreciate it.
+Robert Nielsen
+Fri 8/16/2019 3:50 PM
+Here's my notes I took. Randal said this won't be on the quiz: Defragging a database in Oracle system is called “dechaining”. Fragmentation only happens with VARCHAR variables. Defragmentation steps: Move fragments to temporary table Remove fragments from real
+
+Oracle_Monday:
+
+create or replace procedure javahi
+as
+language java
+name 'sayhi2.sayhi()';
+
+
+
+create or replace function javagst(x number)
+return number
+as
+language java
+name 'getgst.gst(double) return double';
+/
+
+
+select javagst(100) from dual;
+
+
+
+relational algebra
+- shortcut sql using math symbols
+- alternative - relational calculus
+
+
+select year,month,sales
+,lag(sales,1) over(order by month)
+from marketing
+order by month
+/
+
+--lag(sales,1) means go back to 1 month
+
+
+select year,month,sales
+,lag(sales,1) over(order by month) as previous,
+100*(sales - lag(sales,1) over (order by month))/
+lag(sales,1) over (order by month) as "% change"
+from marketing
+order by month
+/
+
+
+select year,month,sales
+,lag(sales,1) over(order by month) as previous,
+to_char(100*(sales - lag(sales,1) over (order by month))/
+lag(sales,1) over (order by month),'999999.9') as "% change"
+from marketing
+order by month
+/
+
+
+
+write a procedure with 4 parameters
+amount ex:10000.00
+years 	ex:1.0
+rate per year ex:12.0%
+payment per month ex:888.49
+
+enter first 3 numbers then u calculate 4th one
+Want a payment report like:
+month(years/12) Beginamount interest(beginamount*(rate/12/100) payment(888.49) ENDamount(beginamount+interest-payment)=9211.51
+
+
+select * from salesdata
+model
+partition by (year)
+dimension by (month)
+measures (sales)
+rules(sales[for month from 5 to 12 increment 1]=((sales[cv()-1] - sales[cv()-2]/sales[cv()-2)*sales[cv()-1])
+/
+
+
+Model Keyword:
+-can predict future #'s
+- parts
+	- partition (column that do not change)
+	- dimension (column to increment)
+	- measure (column with amount to predict)
+	- rules (formula used to predict numbers)
+
+
+select owner, table_name from all_tables;
+
+CUSTOMERT
+SERVICE_CALL
+SERVICE_LABOR_DETAIL
+SERVICE_PARTS_DETAIL
+PARTST
+TECHNICIAN
+
+
+
+Oracle_Monday:
+
+create or replace procedure javahi
+as
+language java
+name 'sayhi2.sayhi()';
+
+
+
+create or replace function javagst(x number)
+return number
+as
+language java
+name 'getgst.gst(double) return double';
+/
+
+
+select javagst(100) from dual;
+
+
+
+relational algebra
+- shortcut sql using math symbols
+- alternative - relational calculus
+
+
+select year,month,sales
+,lag(sales,1) over(order by month)
+from marketing
+order by month
+/
+
+--lag(sales,1) means go back to 1 month
+
+
+select year,month,sales
+,lag(sales,1) over(order by month) as previous,
+100*(sales - lag(sales,1) over (order by month))/
+lag(sales,1) over (order by month) as "% change"
+from marketing
+order by month
+/
+
+
+select year,month,sales
+,lag(sales,1) over(order by month) as previous,
+to_char(100*(sales - lag(sales,1) over (order by month))/
+lag(sales,1) over (order by month),'999999.9') as "% change"
+from marketing
+order by month
+/
+
+
+
+write a procedure with 4 parameters
+amount ex:10000.00
+years 	ex:1.0
+rate per year ex:12.0%
+payment per month ex:888.49
+
+enter first 3 numbers then u calculate 4th one
+Want a payment report like:
+month(years/12) Beginamount interest(beginamount*(rate/12/100) payment(888.49) ENDamount(beginamount+interest-payment)=9211.51
+
+
+
+
+Model Keyword:
+-can predict future #'s
+- parts
+	- partition (column that do not change)
+	- dimension (column to increment)
+	- measure (column with amount to predict)
+	- rules (formula used to predict numbers)
+
+
+select owner, table_name from all_tables;
+
+CUSTOMERT
+SERVICE_CALL
+SERVICE_LABOR_DETAIL
+SERVICE_PARTS_DETAIL
+PARTST
+TECHNICIAN
+
+

@@ -1,0 +1,123 @@
+--names on totals
+select case when grouping(color)=1
+            then '<FINAL>' else color end as "Color",
+case when grouping(inv_size)=1
+     then '<COLOR TOTAL>' else inv_size end as "Size",
+sum(inv_qoh)
+from inventory
+group by rollup(color,inv_size)
+order by color,inv_size;
+
+--object table
+create type address as object
+(street char(30),city char(30),prov char(2));
+/
+create table suppliers
+(sup# number(6) primary key,
+sup_address address,
+balance number(10,2));
+
+set describe depth 2
+desc suppliers
+
+--split data into many tables
+insert all
+when c_state='MN' then into customer_mn
+when c_state='WI' then into customer_wi
+select * from customer
+
+--get data from outside oracle
+create table outside_stuff
+(id number(6),
+name char(30),
+prov char(2))
+organization external
+(default directory cdrive
+location('names.txt'));
+
+--give a name to a select
+create view mydata as
+select * from emp;
+
+select * from mydata;
+
+--see xml for data
+select getxml('select * from dept') from dual;
+
+--see html for data
+set markup html on
+select * from emp;
+set markup html off
+
+--save sql and data
+spool c:\sql\stuff.txt
+select * from emp;
+spool off
+
+--quick inner join
+select dname,ename
+from dept natural join emp;
+
+--concatenate columns
+select deptno||' '||ename from emp;
+
+select deptno,rpad(wm_concat(ename),60)
+from emp;
+
+--show % of totals
+select color,sum(inv_qoh),100*sum(inv_qoh)/sum(sum(inv_qoh)) over () "% of total"
+from inventory
+group by color;
+
+--control type of commit
+set transaction isolation level read committed;
+
+--save data
+commit;
+
+select rpad(lpad(' ',3*level)||name,30) as "people"
+from payroll
+start with sin=1
+connect by prior sin=manager_sin;
+
+with datax as (select deptno,job,sal from emp)
+select * from datax
+pivot
+(sum(sal) for deptno in (10,20,30));
+
+
+
+create table baskets
+ (basket# number(3),
+ item char(20),
+ primary key(basket#,item));
+
+ insert into baskets
+ select 1,'apples' from dual union
+ select 1,'juice' from dual union
+ select 1,'milk' from dual union
+ select 1,'eggs' from dual union
+ select 2,'juice' from dual union
+ select 2,'eggs' from dual union
+ select 2,'bread' from dual union
+ select 3,'eggs' from dual union
+ select 3,'milk' from dual union
+ select 3,'cereal' from dual union
+ select 3,'bananas' from dual union
+ select 4,'juice' from dual union
+ select 4,'milk' from dual union
+ select 4,'eggs' from dual;
+
+ commit;
+
+
+select distinct
+ 	case when a.item<b.item then a.item else b.item end "item1",
+ 	case when b.item>a.item then b.item else a.item end "item2",
+ 	count(*)/2 "count"
+ 			from baskets a cross join baskets b
+ 			where a.item<>b.item and a.basket#=b.basket#
+ 			group by case when a.item<b.item then a.item else b.item end,
+ 	case when b.item>a.item then b.item else a.item end
+ 					having count(*)/2 > 1
+ 					order by 3 desc;

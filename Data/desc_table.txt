@@ -1,0 +1,50 @@
+SQL> desc customert
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ CUST_NUM                                  NOT NULL NUMBER(6)
+ CUST_LAST                                          VARCHAR2(15)
+ CUST_FIRST                                         VARCHAR2(10)
+ CUST_ADDRESS                                       VARCHAR2(25)
+ CUST_CITY                                          VARCHAR2(10)
+ CUST_STATE                                         CHAR(4)
+
+SQL> desc technician
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ TECH_NUM                                  NOT NULL NUMBER(4)
+ TECH_LAST                                          VARCHAR2(15)
+ TECH_FIRST                                         VARCHAR2(15)
+ HIRE_DATE                                          DATE
+
+SQL> desc service_call
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ CALL_NUM                                  NOT NULL NUMBER(6)
+ CUST_NUM                                           NUMBER(6)
+ DATEC                                              DATE
+ TECH_NUM                                           NUMBER(4)
+
+SQL> desc service_labor_detail
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ CALL_NUM                                  NOT NULL NUMBER(6)
+ LABOR_CODE                                NOT NULL CHAR(2)
+ LABOR_HOURS                                        NUMBER(5,2)
+
+SQL> desc service_parts_detail
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ CALL_NUM                                  NOT NULL NUMBER(6)
+ PART_NUM                                  NOT NULL VARCHAR2(10)
+ QTY                                                NUMBER(5)
+
+SQL> desc partst
+ Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------------------
+ PART_NUM                                  NOT NULL VARCHAR2(10)
+ PART_DESC                                          VARCHAR2(10)
+ COST                                               NUMBER(15,2)
+ PRICE                                              NUMBER(15,2)
+ QTY_ON_HAND                                        NUMBER(5)
+
+SQL> spool off

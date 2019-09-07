@@ -1,0 +1,129 @@
+create or replace trigger watch_inv
+before insert or update or delete on inventory
+for each row
+begin
+	if (:new.inv_price > 1.1 * :old.inv_price) then
+   	   raise_application_error(-20001,'>> CANNOT INCREASE MORE THAN 10 PERCENT');
+	end if;
+end;
+
+--------------------------------------------------------------------------------
+
+create or replace trigger watchcat
+before insert on category
+for each row
+begin
+	if (to_char(sysdate,'dy')='fri') then
+ 	  raise_application_error(-20001,'CANNOT ADD CATEGORIES TODAY');
+	end if;
+end;
+
+--------------------------------------------------------------------------------
+
+create or replace trigger loginv
+before update on inventory
+for each row
+begin
+	insert into log values(user,sysdate,userenv('terminal'),
+  		 	'inventory changed key: '||:old.inv_id||' old price: '||
+    			:old.inv_price||' new price: '||:new.inv_price);
+end;
+
+
+--------------------------------------------------------------------------------
+
+create or replace trigger addpeople
+instead of insert on people
+for each row
+declare
+nextemp number(6);
+deptnum number(3);
+begin
+	select max(empno)+1 into nextemp from emp;
+	select deptno into deptnum from dept
+        	where upper(dname)=upper(:new.dname);
+	insert into emp values(nextemp,:new.ename,:new.job,
+                null,sysdate,:new.sal,0,deptnum);
+end;
+
+
+-----------------------------------------------------------------------------------
+
+create or replace trigger stop_late_item_adds
+before insert on item
+for each row
+begin
+	if (to_char(sysdate,'hh24:mi')>'11:00') then
+  		raise_application_error(-20001,'>>TOO LATE TO ADD ITEMS<<');
+	end if;
+end;
+
+
+-------------------------------------------------------------------------------
+
+create or replace package body payroll_package
+as
+function taxit(amount number) 
+return number
+as
+begin
+	return amount*0.30;
+end;
+
+procedure printpay
+as
+begin
+	for x in (select * from emp) loop
+     		print(x.ename||' '||x.sal||' '||taxit(x.sal));
+	end loop;
+end;
+
+begin	--like a constructor in a class (runs when code is used)
+	dbms_output.put_line('someone is running payroll code');
+	insert into log values(user,sysdate,userenv('terminal'),'payroll is running');
+end;
+
+---------------------------------------------------------------------------------
+
+create or replace trigger warehouse
+before insert or update or delete on invoices
+for each row
+declare
+counter number(6);
+begin
+if inserting then
+   select count(*) into counter from prov_totals
+                          where prov=:new.prov;
+   if (counter=0) then
+         insert into prov_totals values(:new.prov,:new.amount);
+   else
+         update prov_totals set total=total + :new.amount
+                           where prov=:new.prov;
+   end if;
+
+elsif deleting then
+   update prov_totals set total=total - :old.amount
+                           where prov=:old.prov;
+
+elsif updating then
+   if (:new.prov=:old.prov) then --just add difference to total
+        update prov_totals set total=total + (:new.amount - :old.amount)
+                         where prov=:old.prov;
+   else --remove old amount from old prov and put new amount in new prov
+        update prov_totals set total=total - :old.amount 
+                         where prov=:old.prov;
+        --need to determine if new prov exists in warehouse
+        --and do an insert or update
+        select count(*) into counter from prov_totals
+                          where prov=:new.prov;
+        if (counter=0) then
+           insert into prov_totals values(:new.prov,:new.amount);
+        else
+           update prov_totals set total=total + :new.amount
+                           where prov=:new.prov;
+        end if;
+   end if;
+end if;
+end;
+
+-------------------------------------------------------------------------------

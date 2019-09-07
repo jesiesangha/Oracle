@@ -1,0 +1,344 @@
+//PLSQL
+slash will end 
+
+//to get code back after clearing screen and function name MUST be CAPITALs
+select text from user_source where name='GETGRADE';
+
+//max find the latest date
+
+
+FUNCTIONS:
+
+---------------------------------------------------------------------
+create or replace procedure countup(minx number, maxx number)
+as
+x number(3):=minx; 
+y number(3);
+begin
+--for x in minx..maxx loop
+dbms_output.put_line('x'||chr(9)||'x*x');
+--end loop;
+
+while(x <=maxx ) loop
+y:=x*x;
+dbms_output.put_line(x||chr(9)||y);
+x:=x+1;
+end loop;
+end;
+/
+
+exec countup(3,8)
+------------------------------------------------------------------------------
+
+create or replace function getgst(amount number)
+return number
+as 
+tax number(10,2):=2;
+begin
+tax:=amount*0.05;
+return tax;
+end;
+/
+
+select getgst(100) from dual;
+
+//Run above function on real table
+select invoice#, invoice_amount,getgst(invoice_amount)
+from ar_invoices
+/
+
+-------------------------------------------------------------------------------
+create or replace function gettax(amount number,prov char)
+return number
+as 
+tax number(10,2):=2;
+begin
+if (prov='ab') then
+tax:=amount*0.05;
+elsif(prov='bc') then
+tax:=amount*0.12;
+else
+tax:=amount*0.10;
+end if;
+return tax;/
+end;
+/
+
+select gettax(100, 'bc') from dual
+/
+
+---------------------------------------------------------------------------------
+
+create or replace function getgrade(grade number)
+return char
+as
+result char(5):='A';
+begin
+if(grade >=90 and grade <= 100) then
+result := 'A';
+elsif (grade<=89 and grade>=80) then
+result := 'B';
+elsif (grade<=79 and grade >=70) then
+result := 'C';
+elsif (grade<=69 and grade >= 60) then
+result := 'D';
+else
+result := 'F';
+end if;
+return result;
+end;
+
+select getgrade(77) from dual;
+
+----------------------------------------------------------------------------
+
+
+create or replace function totalcom(sale number)
+return number
+as 
+comm number(10,2);
+begin
+if (sale <=1500) then
+comm := 0;
+elsif(sale >1500 and sale <= 6500) then 
+comm := .20* (sale - 1500);
+else
+comm := .25* (sale - 6500) + .20*5000;
+end if;
+return comm;
+end;
+
+select totalcom(1000) from dual; answer = 0
+select totalcom(2000) from dual; answer = 100
+select totalcom(7500) from dual; answer = 1250
+
+---------------------------------------------------------
+create or replace function totaltax(sale number)
+return number
+as
+tax number(10,2) := 0;
+begin
+if (sale < 100) then
+tax := .07*sale;
+else
+tax := .07*sale + .08*sale + (.07 * (.08*sale));
+end if;
+return tax;
+end;
+
+select totattax(50) from dual; answer = 3.50
+select totaltax(200) from dual; answer = 31.12
+
+----------------------------------------------------------------
+
+
+RECURSIVE FUNCTION:
+
+create or replace function fact(x number)
+return number
+as 
+total number(6) := 1;
+begin
+for y in 1..x loop
+ total:= total*y;
+end loop;
+return total;
+end;
+
+select fact(5) from dual;
+
+create or replace function fact(x number)
+return number
+as 
+total number(6) := 1;
+begin
+if (x=1) then
+return 1;
+else
+return x * fact2(x-1);
+end if;
+end;
+
+-------------------------------------------------------------------------
+FUNCTION WITH SQL INSIDE IT.
+
+
+create or replace function gettot(sizex char)
+return number
+as 
+total number(10);
+begin 
+select sum(inv_qoh) into total from inventory
+where upper(inv_size)=upper(sizex);
+return total;
+end;
+/
+
+select gettot('s') from dual;
+
+
+INSTEAD WRITE BELOW SQL FIRST, 
+RUN IT BY USING SLASH AND THEN PUT INTO FUNCTION.
+
+select sum(inv_qoh) from inventory 
+where upper(inv_size)=upper('s');
+
+---------------------------------------------------------------------------
+//Make sure u have only one record before u write below statement to put into phone
+select c_dphone from customer where c_id=1
+/
+
+
+select c_dphone into phone -- put c_dphone into phone
+from customer 
+where c_id=1; -- 1 should be parameter;
+
+------------------------------------------------------------------------------
+
+create or replace function getphone(id number)
+return varchar2
+as 
+phone varchar2(10);
+begin
+select c_dphone into phone from customer
+where c_id=id;
+return phone;
+end;
+/
+
+select getphone(1) from dual
+/
+
+------------------------------------------------------------------------------
+
+create or replace function getphone(id number)
+return varchar2
+as 
+phone varchar2(10);
+formatphone varchar2(14);
+begin
+select c_dphone into phone from customer
+where c_id=id;
+formatphone:='('||substr(phone, 1, 3)||') '||substr(phone, 4, 3)||
+'_'||substr(phone, 7, 4);
+return formatphone;
+end;
+
+
+select c_first, c_last, rpad(getphone(c_id),15) as "phone" from customer
+/
+
+---------------------------------------------------------------------------
+
+select count(distinct color)
+from inventory natural join item
+where cat_id = id;
+/
+
+create or replace function getcolor(id number)
+return number
+as 
+counter number(10);
+begin
+select count(distinct color) into counter
+from inventory natural join item
+where cat_id = id;
+return counter;
+end;
+/
+
+-----------------------------------------------------------------------
+
+select o_id ol_quantity, color, inv_size
+from order_line natural join inventory
+order by inv_size;
+
+select avg(ol_quantity)
+from order_line natural join inventory
+where inv_size = 'L';
+
+
+create or replace function getavg(sizex char)
+return number
+as 
+average number(5,1);
+begin
+select avg(ol_quantity) into average
+from order_line natural join inventory
+where upper(inv_size) = upper(sizex);
+return average;
+end;
+
+select getavg('L') from dual
+/
+---------------------------------------------------------------------
+
+select max(o_date)
+from orders
+where c_id = 5;
+/
+
+
+create or replace function latestdate(id number)
+return date
+as
+ldate date;
+begin
+select max(o_date) into ldate
+from orders
+where c_id = 5;
+return ldate;
+end;
+/
+
+select latestdate(4) from dual;
+
+
+------------------------------------------------------------------------
+
+Tables must have foreign keys if u wana use natural join.
+2 tables natural join
+if 3 tables u need brackets
+
+FROM ((x natural join y) natural join z) natural join zz);
+OR
+FROM (x natural join y) natural join (z natural join zz);
+
+
+select cat_desc, item_desc, color, inv_size
+from (category natural join item) natural join inventory
+order by 1,2,3,4;
+
+
+----------------------------------------------------------
+JOINING FOUR TABLES
+
+//to calculate total u need sum()
+select sum(inv_price*inv_qoh) from inventory;
+
+select sum(inv_price*sl_quantity)
+from (orders natural join order_line)
+natural join
+(inventory natural join shipment_line)
+where c_id=1;
+
+
+create or replace function gettotal(custid number)
+return number
+as 
+total number(10,2);
+begin
+select sum(inv_price*sl_quantity) into total
+from (orders natural join order_line)
+natural join
+(inventory natural join shipment_line)
+where c_id=custid;
+return total;
+end;
+/
+
+Function: never use group by
+
+--------------------------------------------------------------------
+
+

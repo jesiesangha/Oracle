@@ -1,0 +1,53 @@
+SQL> select * from customert;
+
+  CUST_NUM CUST_LAST       CUST_FIRST CUST_ADDRESS              CUST_CITY  CUST 
+---------- --------------- ---------- ------------------------- ---------- ---- 
+      1111 Sangha          Raj        43 Oak Drive              Denver     CO   
+      2222 Badhesha        Harry      1011 Hiltop Road          Charlotte  NC   
+      3333 Kaur            Jesie      59 Taralea Park           Calgary    AB   
+      4444 Sharma          Rohit      204 Evanston Road         Calgary    AB   
+
+SQL> select * from technician;
+
+  TECH_NUM TECH_LAST       TECH_FIRST      HIRE_DATE                            
+---------- --------------- --------------- ---------                            
+         1 Belsham         John            01-APR-18                            
+         2 Kot             Kelly           01-FEB-19                            
+
+SQL> select * from service_call;
+
+  CALL_NUM   CUST_NUM DATEC       TECH_NUM                                      
+---------- ---------- --------- ----------                                      
+     10795       1111 15-JUL-19          1                                      
+     10796       2222 20-JUL-19          1                                      
+     10797       1111 25-JUL-19          1                                      
+     10798       3333 25-JUL-19          2                                      
+     10799       4444 27-JUL-19          2                                      
+
+SQL> select * from service_labor_detail;
+
+  CALL_NUM LA LABOR_HOURS                                                       
+---------- -- -----------                                                       
+     10795 A            2                                                       
+     10796 B            1                                                       
+     10797 B          2.5                                                       
+     10798 C          1.5                                                       
+
+SQL> select * from service_parts_detail;
+
+  CALL_NUM PART_NUM          QTY                                                
+---------- ---------- ----------                                                
+     10795 SS-9090             5                                                
+     10796 AB-9011             1                                                
+     10797 AB-9011             3                                                
+     10798 DD-9088             2                                                
+
+SQL> select * from partst;
+
+PART_NUM   PART_DESC        COST      PRICE QTY_ON_HAND                         
+---------- ---------- ---------- ---------- -----------                         
+SS-9090    Disc             2.25        4.5          75                         
+DD-9088    Cable            6.15          7          50                         
+AB-9011    Meter             8.5         12          33                         
+
+SQL> spool off;

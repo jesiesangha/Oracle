@@ -1,0 +1,470 @@
+rpad helps to get rid of dotted lines - COLUMN SIZE
+lpad helps to put some space in front first column
+
+
+Regular Expression:
+
+[yn] valid options for single characters
+[A-Z 0-9]
+[0-9]{10} count
+(AB|BC|MB) valid options for group of characters
+[@]
+\@ look for specific charater
+. means looking for any character
+[everything on keyboard] is equal to .
++ means count of one or more
+
+Postal Code: [A-Z][0-9][A-Z][0-9][A-Z][0-9] or
+([A-Z][0-9]){3}
+
+EMAIL: bob123@xyz123.com
+.+ \@ .+ \. .+
+
+
+create table test
+(gender char(1),
+postal char(6),
+prov char(2));
+
+
+insert into test values('M', 'HOHOHO', 'AB');
+
+//looking for bad gender
+SELECT * from test where not regexp_like(gender, '[MF]');
+SELECT * from test where not regexp_like(prov, '(AB|BC|MB)');
+SELECT * FROM TEST where not regexp_like(postal,'([A-Z][0-9]){3}');
+
+----------------------------------------------------------------------------
+
+Hierarchical Query - used for self joins.
+
+payroll table:
+- SIN (primary key)
+- NAME
+- MANAGER SIN
+
+bob 1, ed 2, mary 3, tim4, sally5, robert6
+bob is president
+B.B HAS ED AND MARY
+ED HAS TIM AND SALLY
+MARY HAS ROBERT
+
+
+create table payroll
+(sin number(9) primary key,
+name char(30),
+manager_sin number(9));
+
+insert into payroll values(1, 'bob', null);
+insert into payroll values(2, 'ed', 1);
+insert into payroll values(3, 'mary', 1);
+insert into payroll values(4, 'tim', 2);
+insert into payroll values(5, 'sally', 2);
+insert into payroll values(6, 'robert', 3);
+
+
+//lpad put space in front of tree
+select rpad(lpad(' ', 3* level)||sin||' ' ||name,30) as "people", manager_sin
+from payroll
+start with sin=1
+connect by prior sin=manager_sin/
+
+
+select id, parent_id, quantity_in_parent,
+rpad(lpad(' ', 3*level) || name,30) as "NAME" from items 
+start with id=11 
+connect by prior id=parent_id;
+
+
+select rpad(lpad(' ', 3*level) ||id||' '|| name,30) as "NAME",
+parent_id, quantity_in_parent
+from items 
+start with id=11 
+connect by prior id=parent_id;
+
+30 is the size of the column
+
+
+----------------------------------------------------------------------
+
+PIVOT:
+works only with temporary table
+
+with datax as (select deptno, job, sal from emp)
+select * from datax
+pivot
+(sum(sal) for deptno in (10,20,30));
+
+
+Report Writer SCRIPT
+---------------------------------------------------------------
+spool c:\sql\report.txt
+ttitle 'Payroll|report'
+set linesize 50
+set pagesize 35
+btitle 'Confidential|Att: Mr Smith'
+break on deptno skip 1 on report
+compute sum label 'Total' of sal on deptno report
+column sal heading 'Salary' format $99,999.99
+column ename heading 'Employee|Name' format a8
+column deptno heading 'Department|Number'
+select deptno, ename, job, sal from emp
+order by deptno;
+spool off
+prompt Look in c:\sql\report.txt to see this report
+ttitle off
+btitle off
+clear columns
+clear computes
+clear breaks
+set linesize 100
+set pagesize 40
+
+--------------------------------------------------------------
+save above as payroll.txt
+start c:\sql\payroll.txt
+
+----------------------------------------------------------------------
+
+SDLC - System development life cycle
+
+- structured way to deliver system on time, on budget, with features wanted.
+- more features = more time and more cost.
+- less time = less features and cost go up.
+- less cost = less features and time go up.
+
+SDLC Parts:
+1. planning:  
+determine if i can do it and if it has benefits
+Benefits: lower cost, increase productivity, increase sales = feasibility study
+RISKS: 
+- people need skills and available
+- Technology look at disk needed, expand database, network speed, CPU speed
+- Money - determine cost and benefits. evaluate NPV, IRR & Paybacks
+
+
+2. Analysis:
+talk to everyone to get exact requirements
+talk to managers, customers, technical staff, users, suppliers
+gather information about reports needed, security needed, input forms needed,
+interfaces needed, calculation or rules and processing speed expected
+Ways to gather information: 
+- interview
+- surveys
+- document study
+- Job Analysis - observe & do job urself
+
+
+3. Design 
+draw diagrams to explain system
+major diagrams - ER, Class, chen, michael jackson, flow chart, HIPO, yourdon, 
+action, state, warnier chart, data flow diagram, use case diagram(security for database people)
+
+
+ 
+4. Implementation = build and test the software
+BUILD = top down (traditional) , bottom up(object oriented)
+
+TEST =
+- Unit Test: test each program which should work
+- integration Test: program fit together and still work
+- System Test: check your interfaces, security, processing speed
+- Acceptance Test: done by users. Alpha & Beta Test
+Alpha Test - use fake data
+Beta Test - use real data at one location
+
+INSTALL OPTIONS =
+Cutover: remove old and put in new
+parallel: putting new but keeping old for one month
+PHASE: piece of new system at a time
+
+
+SAME:
+- database of routes, code to read routes
+- TCP/IP communication to other equipment
+- Code to read sensors
+- code to control motors
+- screens to display jobs
+- reports to show jobs done
+- programs to enter routes
+
+
+DIFFERENCE:
+- Calculation for stopping distances
+- Looping code for train
+- delay time at stop points
+- times when program can run
+- Math symbol to control a motor 
+- override actions
+
+
+CHECK ROBBIE'S TABLE FOR BELOW:
+
+5 Types of Programs in Oracle (PL SQL)
+PLSQL is based on Algol, from 1968
+Types	Commands Allowed	Parameters	Command to Start
+						Input	Output	Min	Max	Min	Max	
+Script	All			0	Infinite	0	0	START
+Procedure	All	0	Infinite	0	Infinite	EXEC
+Function	SELECT	0	Infinite	1	1	SELECT UPPER (name) … WHERE UPPER (name) = ‘…’ X:=UPPER(name);
+Trigger	SELECT, INSERT, UPDATE, DELETE	0	0	0	0	Runs automatically when a table is changed
+Package (like a .zip with related functions and procedures	All	0	0	0	0	EXEC
+
+Oracle Program Types:script, procedure, function, trigger, package is combination of related functions and procedure
+Commands allowed: all, all, select, (select, insert, update, delete), all
+input min max: 0 infinity, 0 infinity, 0 infinity, 0 0, 0 0
+output mix max: 0 0 , 0 infinity, 1 1, 0 0, 0 0
+command to start: start, exec, select upper(name).... where upper(name)='Bob'...x:=uppper(name), run by itself when a table is changed, EXEC
+
+PL SQL: programmming language structed query language based on ALGOL
+
+
+SCRIPT:
+set verify off
+accept min_price number prompt 'Enter minimum price: '
+select distinct inv_size from inventory order by inv_size;
+accept size char prompt 'Enter size to show: '
+select distinct color from inventory where upper(inv_size)=upper('&size') order by size;
+accept colour char prompt 'Enter color to see: '
+select * from inventory 
+where inv_price >= &min_price
+and upper(inv_size) = upper('&size')
+and upper(color)=upper('&colour');
+set verify on
+---------------------------------------------------------------------
+run above script on cmd: start c:\sql\inv.txt OR @c:\sql\inv.txt
+
+
+----------------------------------------------------
+
+
+
+Program Structure:
+Create: 
+- function
+- procedure
+- trigger - can't have parameter
+- package - can't have parameter
+
+Test Program(x number, y number)
+
+
+AS
+//declare ALL variables
+TOTAL NUMBER(10, 2) := 0;
+LAST DEPT CHAR(30);
+BEGIN
+//CODE
+
+
+//TRY CATCH FOR ERRORS
+EXCEPTION
+END;
+/ NEED THIS SLASH
+
+
+DECISIONS
+IF X>100 (ANYTHING FROM A WHERE) THEN
+ELSE
+END IF;
+
+IF PROV='AB' THEN
+ELSIF PROV='BC' THEN
+ELSIF PROV='MB' THEN
+ELSE
+END IF;
+
+
+LOOPS:
+X NUMBER(3);
+WHILE (X<=10) LOOP
+CODE
+X:= X+1; //ASSIGN MEANS := COMPARE MEANS ONLY =
+END LOOP;
+
+
+
+
+(X IS AUTOMATICALLY DECLARED in for loop)
+(/../ IS BEGNINIG) (0 IS ENDING) 
+//FOR LOOP IS ALWAYS INCREMENTED BY 1 OTHERWISE USE WHILE LOOP
+
+FOR X  IN /../0 LOOP 
+CODE
+END LOOP;
+
+A:=1;
+B:=2;
+FOR X IN A..B LOOP
+CODE
+END LOOP;
+
+
+OUTPUT:
+DBMS_OUTPUT.PUT_LINE('HI'||'THERE'||X) //CAN NOT USE COMMA
+DBMS_OUTPUT.PUT_LINE('HI'||CHR(9)||'THERE') //9 IS ASCII CODE FOR TAB
+DBMS_OUTPUT.PUT_LINE(RPAD('HI', 20)||'THERE');
+DBMS_OUTPUT.PUT('HI');
+DBMS.OUTPUT.PUT('THERE'); //PUT MEANS STAY ON SAME LINE
+
+
+
+C#:  THROW('HEY');
+PLSQL: RAISE_APPLICATION_ERROR(-20001, 'HEY'); // - IS ERROR, + IS WARNING
+
+
+ARRAYS:
+
+TYPE SALES IS TABLE OF NUMBER(10, 2) INDEX BY BINARY_INTEGER;
+X SALES;
+X(1) := 100.00;
+X(123) := 200.00;
+X(-3):= 300.00;
+
+TYPE SALES2 IS TABLE OF SALES;
+Y SALES2;
+Y(1,4) := 100.00;
+
+
+CLASS:
+C#:
+class person
+{
+	public int SIN;
+	public string NAME;
+}
+person p = new person();
+p.SIN = 123;
+p.NAME = 'BOB';
+
+
+CLASS IN PLSQL:
+TYPE PERSON IS RECORD
+(SIN NUMBER(9),
+NAME CHAR(30));
+P PERSON;
+P.SIN := 123;
+P.NAME = 'BOB';
+
+//EVERYTHING IS PUBLIC IN PLSQL
+	
+
+IN EXAM NO ARRAYS OR CLASSES
+
+
+------------------------------------------------------------------
+PROCEDURE
+
+create or replace procedure sayhi
+as
+begin
+dbms_output.put_line('hi');
+end;
+/
+
+
+Write procedure in notepad by writing "edit" in the command prompt
+/ //slash in the command prompt to create procedure
+show errors //if there is error otherwise u can run it as below
+exec sayhi
+set serveroutput on //once after u login in oracle
+
+
+
+
+create or replace procedure sayhi
+as
+begin
+dbms_output.put_line('        hi'); //does NOT create space
+dbms_output.put_line(' ');
+dbms_output.put_line('bye');
+end;
+/
+
+
+create or replace procedure sayhi
+as
+begin
+dbms_output.put_line(lpad(' ',10)||'hi'); //does NOT create space
+dbms_output.put_line(' ');
+dbms_output.put_line('bye');
+end;
+/
+
+
+
+create or replace procedure sayhi
+as
+begin
+dbms_output.put_line(chr(9)||'hi'); //chr(9) will create tab
+dbms_output.put_line(' ');
+dbms_output.put_line('bye');
+end;
+/
+
+create or replace procedure sayhi
+as
+begin
+dbms_output.put_line(chr(9)||'hi');   // 9 means tab
+dbms_output.put_line(chr(10));         //chr(10) will NOT create new line
+dbms_output.put_line('bye');
+end;
+/
+/
+
+
+create or replace procedure sayhi
+as
+begin
+dbms_output.put_line('.          hi       there'); //also can use . to create space
+dbms_output.put_line(chr(10)); 
+dbms_output.put_line('bye');
+end;
+/
+
+
+
+
+create or replace procedure countup
+as
+begin
+for x in 1..10 loop        //for loop, x doesn't need to be declared
+dbms_output.put_line(x);
+end loop;
+end;
+
+
+
+create or replace procedure countup
+as
+x number(3):=1; //while loop, x need to be declared
+begin 
+while(x<=10) loop
+dbms_output.put_line(x);
+x:=x+1;
+end loop;
+end;
+/
+
+
+create or replace procedure countup
+as
+x number(3):=1; 
+y number(3);
+begin
+for z in 1..10 loop
+dbms_output.put_line('z'||chr(9)||'z*z');
+while(x<=10) loop
+y:=x*x;
+dbms_output.put_line(x||chr(9)||y);
+x:=x+1;
+end loop;
+end;
+/
+
+
+
+
+
+
+

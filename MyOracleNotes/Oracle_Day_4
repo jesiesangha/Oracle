@@ -1,0 +1,571 @@
+Exam: No array and No classes.
+
+--To see the list of all programs you build
+select distinct type, name from user_source order by 1
+--procedure is compiled code but script is not compiled code
+
+Include variables in Functions.
+Include functions in Procedure.
+
+create or replace procedure taxinv
+as
+total number(10,2);
+tax number(10, 2);
+	function getgst(amount number)
+	return number
+	as 
+	begin 
+	return amount *0.05;
+	end;
+begin 
+select sum(inv_price*inv_qoh) into total from inventory;
+tax:= getgst(total);
+dbms_output.put_line('tax on inventory is: '||tax);
+end;
+/
+
+----------------------------------------------------------------------------
+create or replace procedure demo
+as
+type person is record(sin number(9), name char(30));
+p person;
+begin
+p.sin:=123;
+p.name:='bob';
+dbms_output.put_line(p.name);
+end;
+/
+
+exec demo
+
+--------------------------------------------------------------------------------
+
+
+create or replace procedure demo
+as
+type person is record(sin number(9), name char(30)); --class
+p person; --object
+type sales is table of number(10,2); --array
+s sales;
+begin
+p.sin:=123;
+p.name:='bob';
+s(1):=100.00;
+s(123):=200.00;
+dbms_output.put_line(p.name);
+dbms_output.put_line(s(123));
+dbms_output.put_line(s.first||' '||s.last||' '||s.count);
+end;
+/
+
+exec demo
+
+-------------------------------------------------------------------------------
+
+
+
+create or replace procedure demo
+as
+type person is record(sin number(9), name char(30)); --class
+p person; --object
+type sales is table of number(10,2) index by binary_integer; --array
+s sales:=sales();
+type people is table of person index by binary_integer; -- array of classes
+workers people; --worker is now table
+begin
+workers(1).sin:=456; 
+p.sin:=123;
+p.name:='bob';
+s(1):=100.00;
+s(123):=200.00;
+dbms_output.put_line(p.name);
+dbms_output.put_line(s(123));
+dbms_output.put_line(s.first||' '||s.last||' '||s.count);
+end;
+/
+
+exec demo
+
+
+----------------------------------------------------------------------------
+
+create or replace procedure traperrors
+as
+x number(3):=1;
+y number(3):=0;
+begin
+x:=x/y;
+dbms_output.put_line('hey');
+end;
+/
+
+exec traperrors
+
+----------------------------------------------------------------
+create or replace procedure traperrors
+as
+x number(3):=1;
+y number(3):=0;
+begin
+x:=x/y;
+dbms_output.put_line('hey');
+exception --try/catch
+	when zero_divide then
+		dbms_output.put_line('bad math');
+	when value_error then
+		dbms_output.put_line('variable too small to hold value');
+	when others then
+	if sqlcode=-8000 then 
+		dbms_output.put_line('no privilege to see data');
+	elsif sqlcode=-9000 then
+		dbms_output.put_line('no disk space');
+	else 
+		dbms_output.put_line(sqlerrm);
+	end if;
+end;
+/
+
+
+exec traperrors
+-----------------------------------------------------------------------------
+
+
+create or replace procedure payreport
+as
+begin
+for x in (select * from emp) loop --oracle implicit cursor
+ dbms_output.put_line(x.ename||x.sal);
+end loop;
+end;
+/
+
+
+
+
+---------------------------------
+create or replace procedure payreport
+as
+total number(8);
+begin
+select sum(inv_qoh) into total from inventory; 
+for x in (select * from emp) loop --oracle implicit cursor
+ dbms_output.put_line(x.ename||x.sal);
+end loop;
+end;
+/
+
+------------------------------------------------------------------
+--declare, open,fetch,close
+--loop comes right after open
+create or replace procedure payreport_explicit
+as
+total number(8);
+cursor emploop is select * from emp;
+x emploop%rowtype;
+begin
+select sum(inv_qoh) into total from inventory; 
+open emploop; --done immediately before loop using it
+loop --industry standard explicit cursor
+ fetch emploop into x;
+ exit when emploop%notfound;
+ dbms_output.put_line(x.ename||x.sal);
+end loop;
+close emploop; --done immediately after the loop using it
+end;
+/
+
+exec payreport_explicit
+
+-----------------------------------------------------------------------
+//PRINT - make print keyword
+
+create or replace procedure print(datax varchar2)
+as
+begin 
+dbms_output.put_line(datax);
+end;
+/
+
+create or replace procedure sayhi
+as
+begin 
+print('hi'||chr(9)||'there');
+print('bye');
+print('hello');
+end;
+/
+
+
+------------------------------------------------------------------
+
+//BOARD stuff
+
+create or replace procedure fancy
+as
+begin
+for x in (select * from customer) loop
+	print(x.c_first||' '||x.c_last);
+	print(x.c_address);
+	print(x.c_city||','||x.c_state||chr(9)||x.c_zip);
+	print(chr(9)||'Order'||chr(9)||'Amount');
+	dbms_output.put(chr(10));
+end loop;
+end;
+/
+
+
+exec fancy
+--------------------------------------------------------------------
+//assignment - Exam question
+
+select o_id, sum(ol_quantity * inv_price) as Total
+from order_line natural join inventory natural join customer natural join orders
+where c_id=4
+group by o_id
+/
+
+
+select o_id, sum(ol_quantity * inv_price) as Total
+from (order_line natural join orders) natural join inventory
+where c_id=4
+group by o_id
+/
+---------------------------------------------------
+
+Exam question
+
+create or replace procedure fancy
+as
+begin
+for x in (select * from customer) loop
+	print(x.c_first||' '||x.c_last);
+	print(x.c_address);
+	print(x.c_city||','||x.c_state||chr(9)||x.c_zip);
+	print(chr(9)||'Order'||chr(9)||'Amount');
+	for y in (select o_id, sum(ol_quantity * inv_price) as Total
+		from (order_line natural join orders) natural join inventory
+		where c_id= x.c_id
+		group by o_id)loop
+	print(chr(9)||y.o_id||chr(9)||y.Total);
+	end loop;
+	dbms_output.put(chr(10));
+end loop;
+end;
+/
+
+-------------------------------------------------------------------
+//Enhanced the upper program with final totals - Exam question
+
+create or replace procedure fancy
+as
+total number(10,2):=0; --Make sure to put zero in total
+fintotal number(10,2):=0;
+begin
+for x in (select * from customer) loop
+	print(x.c_first||' '||x.c_last);
+	print(x.c_address);
+	print(x.c_city||','||x.c_state||chr(9)||x.c_zip);
+	print(chr(9)||'Order'||chr(9)||'Amount');
+	for y in (select o_id, sum(ol_quantity * inv_price) as amount
+		from (order_line natural join orders) natural join inventory
+		where c_id= x.c_id
+		group by o_id
+		order by o_id)loop
+	print(chr(9)||y.o_id||chr(9)||y.amount);
+	total:=total+y.amount;
+	fintotal:=fintotal + y.amount;
+	end loop;
+	print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '|total);
+	dbms_output.put(chr(10));
+end loop;
+print('Final total '|| fintotal);
+end;
+/
+--------------------------------------------------------------------------------
+//Correction with total - Exam question
+
+create or replace procedure fancy
+as
+total number(10,2):=0; --Make sure to put zero in total
+fintotal number(10,2):=0;
+begin
+for x in (select * from customer) loop
+	print(x.c_first||' '||x.c_last);
+	print(x.c_address);
+	print(x.c_city||','||x.c_state||chr(9)||x.c_zip);
+	print(chr(9)||'Order'||chr(9)||'Amount');
+	for y in (select o_id, sum(ol_quantity * inv_price) as amount
+		from (order_line natural join orders) natural join inventory
+		where c_id= x.c_id
+		group by o_id
+		order by o_id)loop
+	print(chr(9)||y.o_id||chr(9)||y.amount);
+	total:=total+y.amount;
+	fintotal:=fintotal + y.amount;
+	end loop;
+	print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '||total);
+	total:=0;
+	dbms_output.put(chr(10));
+end loop;
+print('Final total '|| fintotal);
+end;
+/
+
+-------------------------------------------------------
+Exam question - Final version
+
+
+create or replace procedure fancy
+as
+total number(10,2):=0; --Make sure to put zero in total
+fintotal number(10,2):=0;
+counter number(6);
+begin
+for x in (select * from customer) loop
+	select count(*) into counter from orders where c_id = x.c_id; 
+if (counter > 0) then
+	print(x.c_first||' '||x.c_last);
+	print(x.c_address);
+	print(x.c_city||','||x.c_state||chr(9)||x.c_zip);
+	print(chr(9)||'Order'||chr(9)||'Amount');
+	for y in (select o_id, sum(ol_quantity * inv_price) as amount
+		from (order_line natural join orders) natural join inventory
+		where c_id= x.c_id
+		group by o_id
+		order by o_id)loop
+	print(chr(9)||y.o_id||chr(9)||y.amount);
+	total:=total+y.amount;
+	fintotal:=fintotal + y.amount;
+	end loop;
+	print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '||total);
+	total:=0;
+end if;
+	dbms_output.put(chr(10));
+end loop;
+print('Final total '|| fintotal);
+end;
+/
+
+
+----------------------------------------------------------------------
+
+Explicit version: Exam question will be to convert implicit into explicit
+create or replace procedure fancy
+as
+total number(10,2):=0; --Make sure to put zero in total
+fintotal number(10,2):=0;
+counter number(6);
+cursor custloop is select * from customer;
+x custloop%rowtype;
+begin
+open custloop;
+loop
+ fetch custloop into x;
+ exit when custloop%notfound;
+	select count(*) into counter from orders where c_id = x.c_id; 
+if (counter > 0) then
+	print(x.c_first||' '||x.c_last);
+	print(x.c_address);
+	print(x.c_city||','||x.c_state||chr(9)||x.c_zip);
+	print(chr(9)||'Order'||chr(9)||'Amount');
+	for y in (select o_id, sum(ol_quantity * inv_price) as amount
+		from (order_line natural join orders) natural join inventory
+		where c_id= x.c_id
+		group by o_id
+		order by o_id)loop
+	print(chr(9)||y.o_id||chr(9)||y.amount);
+	total:=total+y.amount;
+	fintotal:=fintotal + y.amount;
+	end loop;
+	print(chr(9)||chr(9)||chr(9)||chr(9)||'Total '||total);
+	total:=0;
+end if;
+	dbms_output.put(chr(10));
+end loop;
+close custloop;
+print('Final total '|| fintotal);
+end;
+/
+
+--------------------------------------------------------------------------
+
+create or replace procedure assign
+as
+begin
+for x in (select * from category) loop	
+	print(x.cat_id||' '||x.cat_desc);
+	for y in (select distinct color from color natural join item natural join inventory
+			where cat_id = x.cat_id) loop
+	print(chr(9)||y.color);
+	end loop;
+end loop;
+end;
+/
+
+
+create or replace procedure assign
+as
+cursor catloop is select * from category;
+x catloop%rowtype;
+begin
+open catloop;
+loop
+	fetch catloop into x;
+	exit when catloop%notfound;
+	print(x.cat_id||' '||x.cat_desc);
+	for y in (select distinct color 
+			from item natural join inventory
+			where cat_id = x.cat_id) loop
+	print(chr(9)||y.color);
+	end loop;
+end loop;
+close catloop;
+end;
+/
+
+--------------------------------------------------------------------------
+
+create or replace procedure assign
+as
+cursor catloop is select * from category;
+x catloop%rowtype;
+begin
+open catloop;
+loop
+	fetch catloop into x;
+	exit when catloop%notfound;
+print(' ');
+	dbms_output.put_line(x.cat_desc);
+	for y in (select distinct inv_size 
+			from item natural join inventory
+			where cat_id = x.cat_id) loop
+		dbms_output.put(chr(9)||y.inv_size);
+	end loop;
+end loop;
+close catloop;
+end;
+/
+
+--------------------------------------------------------------------------
+create or replace procedure assign
+as
+cursor catloop is select * from category;
+x catloop%rowtype;
+begin
+open catloop;
+loop
+	fetch catloop into x;
+	exit when catloop%notfound;	
+	dbms_output.put(rpad(x.cat_desc, 20));
+	for y in (select distinct inv_size 
+			from item natural join inventory
+			where cat_id = x.cat_id) loop
+		dbms_output.put(chr(9)||y.inv_size);
+	end loop;
+	print(' ');
+end loop;
+close catloop;
+end;
+/
+
+-----------------------------------------------------------------------
+
+
+create or replace procedure report
+as
+saltotal number(10,2):=0;
+taxtotal number(10,2):=0;
+netpay number(10,2):=0;
+cursor deptloop is select dname from dept;
+x deptloop%rowtype;
+begin
+open deptloop;
+loop
+	fetch deptloop into x;
+	exit when deptloop%notfound;
+	print(x.Dname);
+	print(chr(9)||'Worker'||'   '||'Tax'||'   '||'Netpay');
+	for y in (select ename, sal, (.3*sal) as Tax, (sal - (.3*sal)) as Netpay
+		  from emp) loop
+	print(chr(9)||y.ename||'   '|| y.Tax||'   '|| y.Netpay);
+	saltotal:=saltotal+ y.sal;
+	taxtotal:=taxtotal+ y.Tax;
+	netpay:=netpay+ y.Netpay;
+	print(' ');
+	end loop;
+print(chr(9)||'TOTAL: '||' '||saltotal||' '||taxtotal||' '||netpay);
+end loop;
+close deptloop;
+end;
+/
+
+
+
+
+create or replace procedure report --payroll2 done by Randell
+as
+saltotal number(10,2):=0;
+taxtotal number(10,2):=0;
+netpay number(10,2):=0;
+cursor deptloop is select * from dept;
+x deptloop%rowtype;
+begin
+open deptloop;
+loop
+	fetch deptloop into x;
+	exit when deptloop%notfound;
+	print(x.Dname);
+	print(chr(9)||rpad('Worker',15)||'   '||rpad('Sal',15)||'   '||rpad('Tax',15)||'   '||rpad('Netpay',15));
+	for y in (select ename, sal, (.3*sal) as Tax, (sal - (.3*sal)) as Netpay
+		  from emp natural join dept
+		  where deptno = x.deptno) loop
+	print(chr(9)||
+	rpad(y.ename, 15)||'   '||
+	rpad(to_char(y.sal,'$99,999.99'), 15)||'   '|| 
+	rpad(to_char(y.Tax,'$99,999.99'), 15)||'   '|| 
+	rpad(to_char(y.Netpay, '$99,999.99'),15));
+	saltotal:=saltotal+ y.sal;
+	taxtotal:=taxtotal+ y.Tax;
+	netpay:=netpay+ y.Netpay;
+print(' ');
+	end loop;
+end loop;
+print(chr(9)||'TOTAL: '||' '||rpad(saltotal,25)||' '||rpad(taxtotal, 15)||' '||rpad(netpay,15));
+close deptloop;
+end;
+/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

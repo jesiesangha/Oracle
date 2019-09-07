@@ -1,0 +1,114 @@
+EXAM:
+
+create table customert
+(cust_num number(6) primary key,
+cust_last varchar2(15),
+cust_first varchar2(10),
+cust_address varchar2(25),
+cust_city varchar2(10),
+cust_state char(4))
+/
+
+alter table customert modify(cust_last varchar(15));
+
+insert into customert values(1111, 'Sangha', 'Raj', '43 Oak Drive', 'Denver', 'CO')
+insert into customert values(2222, 'Badhesha','Harry', '1011 Hiltop Road', 'Charlotte', 'NC');
+insert into customert values(3333, 'Kaur','Jesie', '59 Taralea Park', 'Calgary', 'AB')
+insert into customert values(4444, 'Sharma','Rohit', '204 Evanston Road', 'Calgary', 'AB')
+
+
+
+
+create table technician
+(tech_num number(4) primary key,
+tech_last varchar2(15),
+tech_first varchar2(15),
+hire_date date)
+/
+
+
+
+insert into technician values(01, 'Belsham', 'John', to_date('4/1/2018' , 'mm/dd/yyyy'))
+insert into technician values(02, 'Kot', 'Kelly', to_date('2/1/2019' , 'mm/dd/yyyy'))
+
+
+create table service_call
+(call_num number(6) primary key,
+cust_num number(6) references customert(cust_num),
+datec date,
+tech_num number(4) references technician(tech_num))
+/
+
+
+insert into service_call values(10795, 1111, to_date('7/15/2019' , 'mm/dd/yyyy'), 01)
+insert into service_call values(10796, 2222, to_date('7/20/2019' , 'mm/dd/yyyy'), 01)
+insert into service_call values(10797, 1111, to_date('7/25/2019' , 'mm/dd/yyyy'), 01)
+insert into service_call values(10798, 3333, to_date('7/25/2019' , 'mm/dd/yyyy'), 02)
+insert into service_call values(10799, 4444, to_date('7/27/2019' , 'mm/dd/yyyy'), 02)
+/
+
+
+create table partst
+(part_num varchar2(10) primary key,
+part_desc varchar2(10),
+cost number(15,2),
+price number(15,2),
+qty_on_hand number(5))
+/
+
+
+
+insert into partst values('SS-9090', 'Disc', 2.25, 4.50, 75)
+insert into partst values('DD-9088', 'Cable', 6.15, 7.00, 50)
+insert into partst values('AB-9011', 'Meter', 8.50, 12.00, 33)
+
+
+
+
+
+
+create table service_parts_detail
+(call_num number(6) references service_call(call_num),
+part_num varchar2(10) references partst(part_num),
+qty number(5),
+primary key(call_num, part_num))
+/
+
+
+
+insert into service_parts_detail values(10795, 'SS-9090', 5)
+insert into service_parts_detail values(10796, 'AB-9011', 1)
+insert into service_parts_detail values(10797, 'AB-9011', 3)
+insert into service_parts_detail values(10798, 'DD-9088', 2)
+/
+
+
+
+
+create table service_labor_detail
+(call_num number(6) references service_call(call_num),
+labor_code char(2),
+labor_hours number(5,2),
+primary key(call_num, labor_code))
+/
+
+
+insert into service_labor_detail values(10795, 'A' , 2.0)
+insert into service_labor_detail values(10796, 'B' , 1.0)
+insert into service_labor_detail values(10797, 'B' , 2.5)
+insert into service_labor_detail values(10798, 'C' , 1.5)
+/
+
+
+
+
+
+
+
+
+
+
+
+
+
+

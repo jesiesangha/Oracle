@@ -1,0 +1,512 @@
+TRIGGERS:
+--Attach to single table
+--programs that run when a table is changed
+-- 3 types: before, after, instead of
+-- Reasons to use:
+	- start other programs
+	- send changes to data warehouse
+	- send changes to other locations
+	- monitor what users are doing
+	- extra editing
+	- extra security
+	- allow changes to views
+--Can'/t watch select but just insert, update or delete
+-- Database is now mutating - means u are something happening like recursive
+- 2 tables have triggeres which update each other when one get updated.
+
+//Give permission to create view
+connect system/oracle
+grant create  any view to scott;
+connect grant/trigger
+
+	EXAM = BEFORE TRIGGER
+	
+	Throw = raise application
+	top command = rownum
+	if user='bob'
+	yesterday = sysdate - 1;
+	
+select max(empno + 1) // will give next empno
+	
+	
+	
+	
+	
+create or replace trigger watch_inventory
+before insert or update or delete on inventory
+for each row 
+begin
+if (:new.inv_price > 1.1 * :old.inv_price) then
+ raise_application_error(-20001, '>>CANNOT INCREASE MORE THAN 10 PERCENT <<');
+end if;
+end;
+/
+
+
+select * from inventory where rownum=1;
+
+update inventory set inv_price=270.00 where inv_id=1
+/
+update inventory set inv_price=400.00 where inv_id=1 //GIVE ERROR mentioned in the trigger
+/
+
+-----------------------------------------------------------------------------------------
+
+select to_char(sysdate, 'day'), to_char(sysdate,'day') from dual;
+
+select to_char(sysdate, 'day'), to_char(sysdate,'hh') from dual;
+insert into category values(88, 'stuff');
+
+
+create or replace trigger watchcat
+before insert on category
+for each row
+begin
+if (to_char(sysdate, 'dy')='fri') then
+raise_application_error(-20001,'Cannot add category today');
+end if;
+/
+
+insert into category values(99, 'stuff2');/ will give error cuz today is friday
+
+
+----------------------------------------------------------------------------------------
+
+-- Check the location of the terminal/computer to put condition - like reception desk
+select userenv('terminal') from dual;
+
+
+create table mylog
+(loguser varchar2(50),
+logdate date,
+loglocation varchar2(50),
+logreason varchar2(600));
+
+select * from mylog
+where logdate= sysdate-1
+and logreason like '%inventory%';
+
+
+
+----------------------------------------------------------
+
+
+create or replace trigger loginventory
+before update on inventory
+for each row
+begin
+insert into mylog values(user, sysdate, userenv('terminal'),
+'inventory changed key: '||:old.inv_id||' old price: '||
+:old.inv_price||' new price: '||:new.inv_price);
+end;
+
+
+
+update inventory set inv_price=281.00 where inv_id=1;
+
+select * from mylog;
+
+
+
+
+
+create view people as
+select dname, ename, job, sal
+from dept natural join emp
+order by dname
+/
+
+//Give permission to create view
+connect system/oracle
+grant create  any view to scott;
+connect grant/trigger
+
+
+insert into people values('SALES', 'mary','Clerk', 1200)
+/
+message u get after running above command:
+cannot modify a column which maps to a non key-preserved table
+it actually means u are inserting into view, it is just giving bad message.
+
+
+--------------------------------------------------------------
+
+it is possible to get data from view and put into table.
+
+function and procedure and packages use AS but in trigger user DECLARE.
+
+INSERT = MEANS LOOKING INTO NEW MEMORY
+DELETE = MEANS LOOKING INTO OLD MEMORY
+UPDATE = MEANS LOOKING AT BOTH NEW AND OLD MEMORY
+
+//Grab data and put into real table
+
+
+create or replace trigger addpeople
+instead of insert on people 
+for each row
+declare
+nextemp number(6);
+deptnum number(3);
+begin
+select max(empno)+1 into nextemp from emp;
+select deptno into deptnum from dept
+where upper(dname) = upper(:new.dname);
+insert into emp values(nextemp, :new.ename, :new.job,
+null, sysdate, :new.sal, 0, deptnum);
+end;
+/
+
+
+insert into people values('SALES', 'mary','Clerk', 1200)
+
+select * from emp where ename='mary';
+
+---------------------------------------------------------
+developer DBA
+
+
+Production Database:
+invoices - 
+insert 1, 100, AB;
+insert 2, 200, AB;
+insert 3, 300, BC;
+insert 4, 400, AB;
+delete #2
+update #4, change 400 to 375 (old 400 and new 375)
+update #1, change AB to BC
+update #2, change BC to MB
+
+
+
+Data warehouse: never delete in warehouse. first time insert then update always.
+prov_totals -
+insert AB, 100
+update AB, +200
+insert BC, 300
+update AB, +400
+update AB, -200 = never delete in warehouse
+update AB, new - old = -25
+update old prov(AB), -old amount(-100_ ALSO update new prov(BC), +new amount(+100)
+update old prov(AB), -old amount(-100_ ALSO insert new prov(MB), +new amount(+100)
+
+create table invoices
+(inv# number(6) primary key,
+amount number(10,2),
+prov char(2));
+
+
+create table prov_totals
+(prov char(2) primary key,
+total number(10,2));
+
+
+NO Warehouse trigger on EXAM
+
+
+create or replace trigger warehouse
+before insert or update or delete on invoices
+for each row
+declare
+counter number(6);
+begin 
+if inserting then
+	select count(*) into counter from prov_totals
+				where prov=:new.prov;
+	if (counter = 0) then 
+		insert into prov_totals values(:new.prov, :new.amount);
+	else
+		update prov_totals set total=total + :new.amount 
+				where prov=:new.prov;
+end if;
+elsif deleting then
+	update prov_totals set total=total - :old.amount
+				where prov = :old.prov;
+elsif updating then
+	if(:new.prov=:old.prov) then --just add difference to total 
+		update prov_totals set total=total+(:new.amount - :old.amount)
+				   where prov=:old.prov;
+	else --remove old amount from old prov and put new amount in new prov
+		update prov_totals set total=total - :old.amount
+			where prov=:old.prov;
+		-- need to determine if new prov exists in warehouse
+		-- and do and insert or update
+		select count(*) into counter from prov_totals
+				where prov=:new.prov;
+	if (counter = 0) then 
+		insert into prov_totals values(:new.prov, :new.amount);
+	else
+		update prov_totals set total=total + :new.amount 
+				where prov=:new.prov;
+	end if;
+end if;
+end if;
+end;
+/
+
+
+insert into invoices values(1, 100, 'ab');
+
+insert into invoices values(2, 200, 'ab');
+
+insert into invoices values(3, 300, 'bc');
+
+insert into invoices values(4, 400, 'ab');
+delete from invoices where inv#=2;
+
+update invoices set amount=375 where inv#=4;
+
+update invoices set prov='bc', amount=80 where inv#=1;
+
+select * prov_totals;
+
+
+-------------------------------------------------------------------------
+insert into item values(888, 'stuff', 1, null) //Cannot insert records after 11 clock
+
+
+
+select to_char(sysdate, 'hh') from dual; //WRONG
+select to_char(sysdate, 'hh24') from dual; //RIGHT but u need to do like below
+to_char(sysdate, 'hh24:mi') > '11:00'
+
+
+create or replace trigger stop_late_item_adds
+before insert on item
+for each row
+begin 
+if(to_char(sysdate, 'hh24:mi') > '11:00') then
+	raise_application_error(-20001, '>>TOO LATE TO ADD ITEMS<<');
+end if;
+end;
+/
+
+insert into item values(999, 'stuff', 1, null)
+-----------------------------------------------------------------------------
+
+
+Put everything into ONE file:
+
+- groups related procedures & functions together
+- like a .zip file
+- 
+
+Advantage:
+- related code together security can be given to all programs at once
+- tell who is running running your procedure and functions
+- 
+
+
+Disadvantage:
+- only one developer at a time can change the code
+- slower to run code in package
+- easy to remove all code
+
+
+
+package needs 2 steps to build it
+- create package definition that gives names of functions and procedures that you want
+to put in a package (like "C" prototype definition)
+- create package code for functions and procedures
+
+
+//no begin - STEP 1
+create or replace package payroll_package
+as 
+function taxit(amount number) return number;
+procedure printpay;
+end;
+/
+
+//STEP 2
+create or replace package body payroll_package
+as
+function taxit(amount number) return number
+as
+begin
+return amount*30;
+end;
+procedure printpay
+as 
+begin
+for x in (select * from emp) loop
+print(x.ename||' '||x.sal||' '||taxit(x.sal));
+end loop;
+end;
+begin --like a constructor in a class(runs when code is used)
+dbms_output.put_line('someone is running payroll code');
+insert into log values(user,sysdate,userenv('terminal'), 'Payroll is running');
+end;
+/
+
+exec payroll_package.printpay
+/
+
+
+select payroll_package.taxit(100) from dual
+/
+select * from log;
+---------------------------------------------------------------------------
+
+use user account to hold all the programs then creating packages
+
+
+Oracle store packages ?
+dbms_output is package
+put_line is procedure
+
+
+C:\app\Administrator\product\11.2.0\dbhome_1\RDBMS\ADMIN
+dbmsotpt
+utlfile
+
+psoug.org/reference/library.html
+
+select utl_http.request('http://cibc.ca') from dual;
+
+
+
+//Install package
+connect sys as sysdba
+password: oracle
+
+start 'C:\app\Administrator\product\11.2.0\dbhome_1\RDBMS\ADMIN\utlfile'
+
+set serveroutput on
+set linesize 100
+set pagesize 40
+
+
+create or replace procedure writedos
+as
+x utl_file.file_type;
+begin
+x:=utl_file.fopen('CDRIVE', 'oracle.txt', 'w'); --open file
+utl_file.put_line(x, 'hi from oracle'); --write line
+utl_file.fclose(x); --close file
+end;
+/
+
+exec writedos
+
+open up ur oracle.txt file under c:\sql
+
+Above code was to write in external file
+--------------------------------------------------------------------
+
+
+create or replace procedure writecat
+as
+x utl_file.file_type;
+begin
+x:=utl_file.fopen('CDRIVE', 'oracle.txt', 'w'); --open file
+for y in (select * from category) loop
+	utl_file.put_line(x,y.cat_id||','||y.cat_desc); --write line
+end loop;
+utl_file.fclose(x); --close file
+end;
+/
+exec writecat
+------------------------------------------------------------------------
+//Go out to windows, read data and bring back to oracle
+
+create or replace procedure readcat
+as
+x utl_file.file_type;
+datax varchar2(100);
+begin
+x:=utl_file.fopen('CDRIVE', 'oracle.txt', 'r'); --open file
+loop
+	begin 
+		utl_file.get_line(x, datax);
+	exception
+	when no_data_found then
+		exit; --like a break
+	end;
+	--now u have data so print it or insert it in a table
+	print(datax);
+end loop;
+utl_file.fclose(x); --close file
+end;
+/
+
+exec readcat
+
+--------------------------
+when stuff is fragmented - oracle calls it chain.
+then we dechain it.
+
+Why something fragemented ?
+due to varchar.
+
+read head
+read controller
+motor 
+disc is revolving at 10,000 revolutions per min
+data is written on tracks
+server has several of these drives in cylinder
+
+
+
+Defragment Steps: remove fragments
+1. Move fragments to temporary tables
+2. Remove fragments to real table
+3. Add fragments back to real table
+
+
+database speed up - by removing fragments - create package.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
